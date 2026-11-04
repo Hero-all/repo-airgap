@@ -152,10 +152,23 @@ def main(argv=None):
             else:
                 table = Table(title="repo-airgap — review candidates")
                 table.add_column("Category")
-                table.add_column("Count", justify="right")
+                table.add_column("Total", justify="right")
+                for level in ("HIGH", "MEDIUM", "LOW"):
+                    table.add_column(level, justify="right")
+                by_level = {}
+                for c in result["candidates"]:
+                    by_level[(c["category"], c["severity"])] = by_level.get((c["category"], c["severity"]), 0) + 1
                 for category, count in result["summary"].items():
-                    table.add_row(category, str(count))
+                    table.add_row(
+                        category,
+                        str(count),
+                        *(str(by_level.get((category, level), 0)) for level in ("HIGH", "MEDIUM", "LOW")),
+                    )
                 Console().print(table)
+                print(
+                    "LOW = reference links, same-origin API calls and allow-listed hosts. "
+                    "Use --severity MEDIUM to hide them."
+                )
                 print_hints(result["offline_hints"])
                 print(
                     f"Evidence: {state}\nFiles: {result['total_files_scanned']}; warnings: {len(result['warnings'])}"
