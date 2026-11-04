@@ -15,7 +15,7 @@ CLIENT = re.compile(
     + r"|Client|AsyncClient|ClientSession|Session)\s*\("
     r"|(?<![\w$.])urllib\.(?:request\.)?(?:urlopen|urlretrieve|Request)\s*\(|(?<![\w$.])urlopen\s*\("
     r"|\bhttp\.(?:Get|Post|Do|NewRequest)\s*\("
-    r"|navigator\.sendBeacon\s*\(|new\s+WebSocket\s*\(|(?<![\w$.])https?\.(?:request|get)\s*\(",
+    r"|navigator\.sendBeacon\s*\(|new\s+WebSocket\s*\(|(?<![\w$])https?\.(?:request|get)\s*\(",
 )
 NET_CONFIG = re.compile(r"(?:url|host|endpoint|base_url|baseurl|server|webhook|domain)\s*[:=]", re.I)
 # URIs used as identifiers (XML namespaces, JSON Schema, spec links) that clients do not fetch.

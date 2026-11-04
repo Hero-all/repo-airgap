@@ -28,11 +28,12 @@ def test_non_call_lookalikes_are_not_sinks(tmp_path):
         "export type NewScm = typeof scmChangeRequests.$inferInsert;\n"
         "function PatchedWebSocket(this: WebSocket, url: string) {}\n"
         "return this.getActiveSocket()?.connected === true\n"
-        "const ws = new WebSocket(url)\n",
+        "const ws = new WebSocket(url)\n"
+        "return this.http.request({ method: 'GET', url: path })\n",
     )
     found = sinks(tmp_path)
     assert {n for f, n in found if f == "a.py"} == {4, 5}
-    assert {n for f, n in found if f == "b.ts"} == {4}
+    assert {n for f, n in found if f == "b.ts"} == {4, 5}
 
 
 def test_dynamic_sinks_are_labeled_self_or_configured(tmp_path):
