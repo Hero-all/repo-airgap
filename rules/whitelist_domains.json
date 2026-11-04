@@ -1,0 +1,4 @@
+{
+  "description": "Lower-priority reference domains; real network calls are still inventoried.",
+  "domains": ["localhost", "w3.org", "schema.org", "example.com", "example.org", "example.net", "github.com", "registry.npmjs.org", "pypi.org", "files.pythonhosted.org", "fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net", "unpkg.com", "cdnjs.cloudflare.com"]
+}

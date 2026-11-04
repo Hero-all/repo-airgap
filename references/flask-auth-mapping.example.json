@@ -1,0 +1,18 @@
+{
+  "adapter": "flask-session-v1",
+  "entrypoint": "app.py",
+  "app_variable": "app",
+  "google_login_paths": ["/login/google"],
+  "google_callback_paths": ["/oauth/google/callback"],
+  "public_paths": ["/"],
+  "protected_paths": ["/dashboard", "/api/private"],
+  "admin_paths": ["/admin"],
+  "logout_paths": ["/logout"],
+  "session_user_key": "user",
+  "session_fields": {
+    "id": "business_id",
+    "email": "email",
+    "name": "display_name",
+    "role": "role"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "repo-airgap-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --experimental-strip-types offline-check.mjs"},
+  "dependencies": {"react": "^18.3.1", "posthog-js": "^1.200.0", "@sentry/react": "^8.0.0"}
+}

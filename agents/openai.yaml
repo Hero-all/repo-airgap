@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Airgap"
+  short_description: "Audit outbound requests and prepare reviewed offline patches"
+  default_prompt: "Use $repo-airgap to list outbound calls and inferred purposes first, let me choose what to keep or cut, then prepare a reviewed adaptation plan."

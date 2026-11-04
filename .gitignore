@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.airgap/
+dist/
+build/
+*.egg-info/
+*.pyc
+.airgap-demo/
+.airgap-demo*/
+PRD_repo_airgap.md
+
