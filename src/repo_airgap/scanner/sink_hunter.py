@@ -6,15 +6,28 @@ from .url_hunter import CLIENT
 
 SINKS = [
     ("http_client", CLIENT),
-    ("socket", re.compile(r"socket\.(?:socket|create_connection)|net\.connect|Socket\s*\(")),
-    ("dns", re.compile(r"(?:dns\.(?:resolve\w*|lookup)|socket\.getaddrinfo|dns\.resolver)\s*\(")),
+    (
+        "socket",
+        re.compile(
+            r"\bsocket\.(?:socket|create_connection)\s*\(|\bnet\.(?:connect|createConnection|Socket)\s*\("
+            r"|(?<![\w$.])(?:new\s+)?Socket\s*\("
+        ),
+    ),
+    (
+        "dns",
+        re.compile(r"(?<![\w$])(?:dns\.(?:resolve\w*|lookup)|socket\.getaddrinfo|dns\.resolver\.\w+)\s*\("),
+    ),
     (
         "shell_upload",
         re.compile(r"\b(?:curl|wget)\b.*(?:--data|--upload-file|--post-data|--post-file|\s-[dTF]\s)"),
     ),
     (
         "cloud_upload",
-        re.compile(r"\.upload_file\s*\(|\.put_object\s*\(|\.upload_blob\s*\(|PutObjectCommand\s*\("),
+        # boto3/azure/gcs receivers only; application methods named upload_file are not cloud egress.
+        re.compile(
+            r"(?i)\b\w*(?:s3|bucket|boto|blob|storage)\w*\.(?:upload_file|upload_fileobj|put_object|upload_blob)\s*\("
+            r"|PutObjectCommand\s*\("
+        ),
     ),
     ("ftp_sftp", re.compile(r"ftplib\.|\.putfo\s*\(|SFTPClient|paramiko\.Transport")),
     ("smtp", re.compile(r"smtplib\.|\.sendmail\s*\(|\.sendMail\s*\(")),

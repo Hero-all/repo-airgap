@@ -5,11 +5,17 @@ from urllib.parse import urlsplit
 URL = re.compile(r"(?:https?|wss?)://[^\s\"'`<>\\)\]}]+", re.I)
 BARE = re.compile(r"[\"']((?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,63})(?::(\d{1,5}))?(?:/[^\"']*)?[\"']")
 IP = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
+HTTP_METHODS = "get|post|put|patch|delete|head|options|request|stream"
 CLIENT = re.compile(
-    r"(?<![\w$])fetch\s*\(|axios(?:\.|\s*\()|(?:requests|httpx)\."
-    r"|urllib\.(?:request\.)?(?:urlopen|urlretrieve|Request)\s*\(|http\.(?:Get|Post|Do)\s*\("
-    r"|navigator\.sendBeacon\s*\(|new\s+WebSocket\s*\(|https?\.request\s*\(",
-    re.I,
+    r"(?<![\w$])fetch\s*\("
+    r"|(?<![\w$])axios(?:\.(?:" + HTTP_METHODS + r"|create)\s*\(|\s*\()"
+    # Calls only: type hints (httpx.Client), exceptions (httpx.TimeoutException) and names
+    # that merely end in "requests" (scmChangeRequests.) are not network calls.
+    r"|(?<![\w$.])(?:requests|httpx|aiohttp)\.(?:" + HTTP_METHODS
+    + r"|Client|AsyncClient|ClientSession|Session)\s*\("
+    r"|(?<![\w$.])urllib\.(?:request\.)?(?:urlopen|urlretrieve|Request)\s*\(|(?<![\w$.])urlopen\s*\("
+    r"|\bhttp\.(?:Get|Post|Do|NewRequest)\s*\("
+    r"|navigator\.sendBeacon\s*\(|new\s+WebSocket\s*\(|(?<![\w$.])https?\.(?:request|get)\s*\(",
 )
 NET_CONFIG = re.compile(r"(?:url|host|endpoint|base_url|baseurl|server|webhook|domain)\s*[:=]", re.I)
 # URIs used as identifiers (XML namespaces, JSON Schema, spec links) that clients do not fetch.
