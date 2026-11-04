@@ -38,6 +38,29 @@ def network_sinks(line):
     return [name for name, pattern in SINKS if pattern.search(line)]
 
 
+# fetch('/api/x'), axios.get(`/v1/...`): same-origin call to the application's own backend.
+SELF_RELATIVE = re.compile(
+    r"(?:\bfetch|\baxios(?:\.\w+)?|\.(?:get|post|put|patch|delete|request))\s*\(\s*[`'\"]/(?![/`'\"])"
+)
+# fetch(`${WEBUI_API_BASE_URL}/x`), requests.get(f"{self.base_url}/x"): deployer-configured backend.
+CONFIG_TEMPLATE = re.compile(r"\(\s*f?[`'\"]\s*\$?\{\s*([A-Za-z_$][\w.$]*)\s*\}")
+CONFIG_NAME = re.compile(
+    r"(?i)(?:base_?url|api_?url|server_?url|service_?url|api_?base|base_?path|endpoint|_url|_host|origin)$"
+)
+
+
+def dynamic_destination(code):
+    """Best-effort label for a call without a literal host: self, config:<NAME>, or dynamic."""
+    if SELF_RELATIVE.search(code):
+        return "self"
+    match = CONFIG_TEMPLATE.search(code)
+    if match:
+        name = match[1].split(".")[-1]
+        if CONFIG_NAME.search(name):
+            return "config:" + name
+    return "dynamic"
+
+
 def related_signals(context):
     signals = []
     for name, regex in [

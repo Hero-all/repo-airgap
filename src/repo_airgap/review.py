@@ -51,6 +51,24 @@ def build_inventory(audit):
         elif candidate["category"] == "PROMO_UI":
             key, kind = "promotion:" + candidate["file_path"], "promotion"
             title, impact = "推广组件：" + candidate["file_path"], "隐藏界面还需检查数据加载及启动副作用。"
+        elif destination == "self":
+            key, kind = "self-api", "self_api"
+            title, impact = (
+                "应用自身后端（同源相对路径）",
+                "前端调用自己的后端接口，通常是核心功能；内网部署时随应用一起部署即可，一般保持 KEEP。",
+            )
+        elif destination and destination.startswith("config:"):
+            key, kind = "destination:" + destination, "configured_backend"
+            title, impact = (
+                "可配置服务地址：" + destination.split(":", 1)[1],
+                "地址来自配置/环境变量，内网部署时改为内网服务地址即可，通常无需改源码。",
+            )
+        elif "reference_link" in candidate.get("related_signals", []):
+            key, kind = "reference-links", "reference"
+            title, impact = (
+                "文档/参考链接（同一行未发现网络调用）",
+                "多为界面上的跳转链接，不会被程序主动请求；内网中点击会打不开，一般保持 KEEP。",
+            )
         else:
             key, kind = "destination:" + (destination or candidate["file_path"]), "outbound"
             title, impact = (

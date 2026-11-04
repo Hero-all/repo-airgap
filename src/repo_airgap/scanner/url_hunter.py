@@ -54,6 +54,29 @@ def comment_line(line):
     return line.lstrip().startswith(("//", "#", "/*", "*", "<!--"))
 
 
+# Contexts where the browser or a client fetches the URL by itself.
+FETCHED_CONTEXT = re.compile(
+    r"(?i)\bsrc\s*[=:]|stylesheet|preload|prefetch|preconnect|dns-prefetch|rel=[\"']?(?:icon|manifest)"
+    r"|<script|@import|url\(|<iframe|<img|<video|<audio|<source|importScripts|\.load\("
+)
+REFERENCE_CONTEXT = re.compile(r"(?i)\bhref\s*[=:]|<a\s|\blink\b|\bdocs?\b|documentation|learn more|\bhelp\b")
+REFERENCE_PATH = re.compile(r"(?i)/(?:docs?|guide|wiki|blob|tree|issues|discussions|releases|pull|licen[cs]e)\b")
+
+
+def is_reference_link(line, url):
+    """A URL that is displayed or linked to, with no network call or fetching attribute on the line."""
+    if NET_CONFIG.search(line) or FETCHED_CONTEXT.search(line):
+        return False
+    try:
+        parsed = urlsplit(url)
+        host = (parsed.hostname or "").lower()
+    except ValueError:
+        return False
+    if host.startswith(("docs.", "doc.", "wiki.", "help.", "support.")):
+        return True
+    return bool(REFERENCE_CONTEXT.search(line) or REFERENCE_PATH.search(parsed.path or ""))
+
+
 def destinations(line, whitelist):
     seen = set()
     for match in URL.finditer(line):

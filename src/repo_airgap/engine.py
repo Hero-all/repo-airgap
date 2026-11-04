@@ -10,9 +10,16 @@ from .scanner.auth_detector import AUTH_SIGNALS
 from .scanner.dep_auditor import dependency_names, imported_packages
 from .scanner.file_walker import is_locale_data, is_test_path, looks_minified, read_source, walk_files
 from .scanner.offline_hints import OfflineHintCollector
-from .scanner.sink_hunter import network_sinks, related_signals
+from .scanner.sink_hunter import dynamic_destination, network_sinks, related_signals
 from .scanner.ui_detector import ui_matches
-from .scanner.url_hunter import IDENTIFIER_HOSTS, comment_line, destinations, domain_matches, is_local_host
+from .scanner.url_hunter import (
+    IDENTIFIER_HOSTS,
+    comment_line,
+    destinations,
+    domain_matches,
+    is_local_host,
+    is_reference_link,
+)
 
 LANGUAGES = {
     ".py": "python",
@@ -119,6 +126,9 @@ def scan(
                 rule = target.pop("rule")
                 if domain_matches(target["destination"], telemetry["telemetry_domains"]):
                     target_signals = [*signals, "known_telemetry_domain"]
+                elif not sinks and is_reference_link(line, content):
+                    target_signals = [*signals, "reference_link"]
+                    severity = "LOW"
                 else:
                     target_signals = signals
                 add(
@@ -134,7 +144,17 @@ def scan(
                     sink_type=",".join(sinks) or None,
                     related_signals=target_signals,
                 )
+            if sinks and len(targets) != 1:
+                following = lines[n] if n < len(lines) else ""
+                dynamic = dynamic_destination(line + " " + following.strip())
+            else:
+                dynamic = None
             for sink in sinks:
+                if len(targets) == 1:
+                    destination, severity = targets[0]["destination"], "HIGH"
+                else:
+                    destination = dynamic
+                    severity = {"self": "LOW"}.get(destination, "MEDIUM" if destination.startswith("config:") else "HIGH")
                 add(
                     path,
                     lines,
@@ -143,8 +163,8 @@ def scan(
                     "NETWORK_SINK",
                     "sink_" + sink,
                     line.strip(),
-                    "HIGH",
-                    destination=targets[0]["destination"] if len(targets) == 1 else "dynamic",
+                    severity,
+                    destination=destination,
                     port=targets[0].get("port") if len(targets) == 1 else None,
                     sink_type=sink,
                     related_signals=signals,
