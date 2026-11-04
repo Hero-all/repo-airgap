@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ repo-airgap — Privacy Audit & Air-Gapped Readiness Tool
+# repo-airgap — Privacy Audit & Air-Gapped Readiness Tool
 
 [![CI](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml/badge.svg)](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Hero-all/repo-airgap?label=Release&color=0969da)](https://github.com/Hero-all/repo-airgap/releases)
@@ -24,7 +24,7 @@
 
 ---
 
-## 📖 Overview
+## Overview
 
 Version 0.1 provides a local Python CLI and an Agent Skill for reviewing optional outbound requests, telemetry, and promotional UI in source repositories. The scanner produces static candidates; an Agent or human reviews business context, supplies exact edits, and then checks and applies a reversible modification plan.
 
@@ -33,7 +33,7 @@ The CLI makes **no remote model or API requests** and **does not execute target 
 > [!NOTE]
 > **Project status: alpha.** Validated on the bundled fixture and on four real open-source projects (see [benchmarks](benchmarks/RESULTS.md)). Expect false positives and gaps; please report them.
 
-### ⚡ Offline readiness hints (no code changes)
+### Offline readiness hints (no code changes)
 
 Many frameworks ship an **official switch** to disable telemetry or force offline mode. `scan` detects them from your manifests (`package.json`, `requirements*.txt`, `pyproject.toml`) and code, checks whether each switch is already set anywhere in the repository, and writes the missing ones to `.airgap/offline.env`. The screenshot above is the real, unedited output of `repo-airgap scan` on [text-generation-webui](https://github.com/oobabooga/text-generation-webui).
 
@@ -41,7 +41,7 @@ It covers 27 frameworks/tools (Next.js, Nuxt, Gatsby, Astro, Storybook, Angular 
 
 By default, test/fixture/spec files, minified bundles, and loopback/private/single-label hosts (e.g. `localhost`, `10.x`, Docker service names) are excluded from candidates. Use `--include-tests` to scan tests too.
 
-## 🚀 Install
+## Install
 
 Python 3.11+ is required.
 
@@ -67,7 +67,7 @@ uv pip install --python .venv/Scripts/python.exe -e ".[auth]"
 
 On macOS/Linux use `.venv/bin/python` and `.venv/bin/repo-airgap`. For a regular package installation use `python -m pip install .`; only `rich` and `pathspec` are core dependencies. Development checks use `pytest` and `ruff`. Offline machines need these dependencies staged beforehand; `scan` does not download them.
 
-## 🔄 Workflow
+## Workflow
 
 Replace `/target` with the absolute repository directory. The commands below assume `repo-airgap` is on `PATH`; otherwise use the virtual environment executable.
 
@@ -119,7 +119,7 @@ The original bytes are the baseline, including uncommitted user work. The tool n
 
 Plans and manifests contain full source snapshots; patches can contain secrets. Secret redaction in scan/report output is best-effort. Keep `.airgap` and decision files local and private. Plans are trusted change intent, not signed artifacts—always inspect the full diff when accepting a plan from another person.
 
-## 🤖 Agent Skill
+## Agent Skill
 
 The entrypoint is [SKILL.md](SKILL.md). It includes classification, exact-edit, verification, and rollback instructions, with references for schemas and return-contract stubs. The project also supplies [`agents/openai.yaml`](agents/openai.yaml) and [`.cursorrules`](.cursorrules).
 
@@ -127,7 +127,7 @@ To make the skill discoverable, place the project folder (including `SKILL.md` a
 
 The distributable `dist/repo-airgap-skill-0.1.0.zip` includes a `repo-airgap/` folder with the Skill, CLI source, rules, references, and tests. Extract that folder into the agent's skills directory and install the CLI from that extracted folder. The zip excludes virtual environments and target audit evidence.
 
-## 🔌 Optional Tools
+## Optional Tools
 
 * **Semgrep JSON/SARIF Import**: `repo-airgap scan /target --semgrep-report /reports/semgrep.json`. Explicit source URI locations and rule IDs are imported; full taint traces and SARIF artifact-index references are not supported in 0.1.
 * **mitmproxy Exporter**: The optional [mitmproxy exporter](scripts/mitmproxy_export.py) writes normalized observation metadata without bodies, headers, or URL query strings.
@@ -135,7 +135,7 @@ The distributable `dist/repo-airgap-skill-0.1.0.zip` includes a `repo-airgap/` f
 
 See [runtime evidence format and limits](references/runtime.md).
 
-## ⚠️ Scope and Limits
+## Scope and Limits
 
 * **Static Coverage**: Scan covers UTF-8 source, nested `.gitignore`, URLs, quoted bare domains, public IPs, common HTTP/socket/DNS/upload calls, telemetry manifests/imports, promotion keywords, and environment/container switches. It skips generated, binary, linked, oversized, minified, and legal files, plus tests and locale catalogs by default. Measured scan time on real projects ranges from about 1 s (144 files) to about 70 s (23k files); see [benchmarks](benchmarks/RESULTS.md).
 * **Static Analysis Boundaries**: Static rules do not prove complete data flow. A nearest function declaration is a navigation hint. Credentials/high-entropy strings near a sink are review signals, not standalone exfiltration findings. Dynamic destinations stay unknown.
@@ -144,7 +144,7 @@ See [runtime evidence format and limits](references/runtime.md).
 * **No OS-Level Isolation Guarantee**: **The CLI does not disconnect the OS network or certify air-gap readiness.** Run critical flows under actual network isolation and collect independent evidence. Proxy observations cover only routed traffic; empty captures prove neither absence of requests nor complete path coverage.
 * **Legal Heuristics**: License/attribution safeguards are conservative heuristics. Review all changes; preserving legal lines does not prove compliance with every upstream license.
 
-## 🧪 Development and Reproducible Demo
+## Development and Reproducible Demo
 
 ```powershell
 .venv/Scripts/python.exe -m compileall -q src
@@ -156,15 +156,7 @@ See [runtime evidence format and limits](references/runtime.md).
 
 The demo copies the fixture, scans it, creates and applies a reviewed telemetry stub, runs Python and Node return-contract tests, produces a report, and then proves byte-exact rollback. Node 22.6+ with `--experimental-strip-types` is needed for the TypeScript fixture runtime. There is no dependency installation for the fixture. Its process-level fetch/socket guards prevent those tested calls from real I/O; they are not OS-level isolation and do not cover all network mechanisms. Choose a fresh demo output directory on repeat runs; existing directories are never overwritten.
 
-## 📚 References
-
-* [repo_scanner](https://github.com/0vatsa/repo_scanner): reference detection ideas; no implementation or rules copied from this repository, which had no declared license at the time of research.
-* [Semgrep](https://github.com/semgrep/semgrep): optional static analysis report import.
-* [mitmproxy](https://github.com/mitmproxy/mitmproxy) and [OpenSnitch](https://github.com/evilsocket/opensnitch): optional runtime network evidence.
-* [ungoogled-chromium design](https://github.com/ungoogled-software/ungoogled-chromium/blob/master/docs/design.md): ordered patch and baseline ideas. Chromium-specific patches are not reused.
-* The supplied `disruptiq/network-mapper-agent` URL returned 404 during research; no code dependency or maturity claim relies on it.
-
-## ⚖️ Disclaimer
+## Disclaimer
 
 1. **Intended Use**: `repo-airgap` assists privacy audits, de-telemetry, and offline adaptation of software you have permission to modify, subject to its MIT, Apache-2.0, GPL, BSD, or other applicable license.
 2. **No License Bypass**: It provides no license-key, paywall, or DRM bypass functionality.
