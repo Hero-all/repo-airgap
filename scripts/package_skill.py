@@ -14,7 +14,9 @@ def build():
         for name in ("SKILL.md", "README.md", "README_CN.md", "LICENSE", "pyproject.toml", ".cursorrules")
         if (ROOT / name).is_file()
     ]
-    for directory in ("agents", "references", "rules", "src", "scripts", "tests"):
+    for directory in ("agents", "assets", "references", "rules", "src", "scripts", "tests"):
+        if not (ROOT / directory).is_dir():
+            continue
         files.extend(
             p
             for p in (ROOT / directory).rglob("*")

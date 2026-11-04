@@ -14,6 +14,10 @@
 
 [**English**](README.md) · [**简体中文**](README_CN.md)
 
+<br/>
+
+<img src="assets/workflow-preview.svg" alt="repo-airgap 终端工作流演示" width="100%"/>
+
 </div>
 
 ---
