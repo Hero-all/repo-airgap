@@ -9,7 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def build():
     output = ROOT / "dist/repo-airgap-skill-0.1.0.zip"
     output.parent.mkdir(exist_ok=True)
-    files = [ROOT / name for name in ("SKILL.md", "README.md", "LICENSE", "pyproject.toml", ".cursorrules")]
+    files = [
+        ROOT / name
+        for name in ("SKILL.md", "README.md", "README_CN.md", "LICENSE", "pyproject.toml", ".cursorrules")
+        if (ROOT / name).is_file()
+    ]
     for directory in ("agents", "references", "rules", "src", "scripts", "tests"):
         files.extend(
             p
