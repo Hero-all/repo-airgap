@@ -26,12 +26,12 @@
 
 ## Overview
 
-Version 0.1 provides a local Python CLI and an Agent Skill for reviewing optional outbound requests, telemetry, and promotional UI in source repositories. The scanner produces static candidates; an Agent or human reviews business context, supplies exact edits, and then checks and applies a reversible modification plan.
+repo-airgap provides a local Python CLI and an Agent Skill for reviewing optional outbound requests, telemetry, and promotional UI in source repositories. The scanner produces static candidates; an Agent or human reviews business context, supplies exact edits, and then checks and applies a reversible modification plan.
 
 The CLI makes **no remote model or API requests** and **does not execute target code** during scanning. Scan results are review candidates, not malice verdicts.
 
 > [!NOTE]
-> **Project status: alpha.** Validated on the bundled fixture and on four real open-source projects (see [benchmarks](benchmarks/RESULTS.md)). Expect false positives and gaps; please report them.
+> Benchmarked on four real open-source projects: dify, open-webui, lobe-chat and text-generation-webui (see [benchmarks](benchmarks/RESULTS.md)). Release history is in the [CHANGELOG](CHANGELOG.md).
 
 ### Offline readiness hints (no code changes)
 
@@ -125,11 +125,11 @@ The entrypoint is [SKILL.md](SKILL.md). It includes classification, exact-edit, 
 
 To make the skill discoverable, place the project folder (including `SKILL.md` and `references/`) under the agent's skills directory, or use that agent's supported local-skill installation method. Install the CLI first. This development checkout does not automatically change global agent settings or install a skill into every agent. Codex discovery typically uses `~/.codex/skills/repo-airgap/`. Invoke it as `$repo-airgap`, specifying the target repository and desired scope.
 
-The distributable `dist/repo-airgap-skill-0.1.0.zip` includes a `repo-airgap/` folder with the Skill, CLI source, rules, references, and tests. Extract that folder into the agent's skills directory and install the CLI from that extracted folder. The zip excludes virtual environments and target audit evidence.
+The distributable `dist/repo-airgap-skill-<version>.zip` includes a `repo-airgap/` folder with the Skill, CLI source, rules, references, and tests. Extract that folder into the agent's skills directory and install the CLI from that extracted folder. The zip excludes virtual environments and target audit evidence.
 
 ## Optional Tools
 
-* **Semgrep JSON/SARIF Import**: `repo-airgap scan /target --semgrep-report /reports/semgrep.json`. Explicit source URI locations and rule IDs are imported; full taint traces and SARIF artifact-index references are not supported in 0.1.
+* **Semgrep JSON/SARIF Import**: `repo-airgap scan /target --semgrep-report /reports/semgrep.json`. Explicit source URI locations and rule IDs are imported; full taint traces and SARIF artifact-index references are not supported yet.
 * **mitmproxy Exporter**: The optional [mitmproxy exporter](scripts/mitmproxy_export.py) writes normalized observation metadata without bodies, headers, or URL query strings.
 * **Runtime Observations**: `repo-airgap verify /target --observations /reports/runtime.json` imports normalized runtime observations. OpenSnitch records may be converted manually; no native OpenSnitch adapter is bundled.
 
@@ -142,6 +142,7 @@ See [runtime evidence format and limits](references/runtime.md).
 * **Supported Edit Languages**: Exact source edits support Python/JS/TS/JSX/TSX/Vue/Svelte/HTML. Python syntax is checked during planning/application; JS/TS and framework builds require the target's build commands. Other languages use separately reviewed manual patches.
 * **Verification Execution**: `verify` runs only supplied argv commands with no inferred shell or project installation. Those commands execute code: use a suitable isolated environment. It records results, not semantic equivalence. No supplied commands means `not_verified`.
 * **No OS-Level Isolation Guarantee**: **The CLI does not disconnect the OS network or certify air-gap readiness.** Run critical flows under actual network isolation and collect independent evidence. Proxy observations cover only routed traffic; empty captures prove neither absence of requests nor complete path coverage.
+* **False Positives**: Static rules still produce false positives and gaps on unfamiliar codebases; please report them as issues.
 * **Legal Heuristics**: License/attribution safeguards are conservative heuristics. Review all changes; preserving legal lines does not prove compliance with every upstream license.
 
 ## Development and Reproducible Demo

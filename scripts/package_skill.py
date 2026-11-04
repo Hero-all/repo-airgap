@@ -1,13 +1,19 @@
 """Build a self-contained skill/source archive; never include local evidence or environments."""
 
+import re
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def version():
+    text = (ROOT / "src/repo_airgap/__init__.py").read_text(encoding="utf-8")
+    return re.search(r'__version__ = "([^"]+)"', text).group(1)
+
+
 def build():
-    output = ROOT / "dist/repo-airgap-skill-0.1.0.zip"
+    output = ROOT / f"dist/repo-airgap-skill-{version()}.zip"
     output.parent.mkdir(exist_ok=True)
     files = [
         ROOT / name

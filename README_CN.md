@@ -26,13 +26,13 @@
 
 ## 项目简介
 
-`repo-airgap`（0.1 版）提供一套本地 Python CLI 工具与 AI Agent Skill（智能体技能）：用于扫描代码仓库中的可选外联请求、遥测上报（Telemetry）、公网 CDN 依赖以及推广弹窗 UI，结合调用方上下文进行业务语义研判，进而生成**可审阅、可验证、可字节级无损回滚**的精确离线化改造计划。
+`repo-airgap` 提供一套本地 Python CLI 工具与 AI Agent Skill（智能体技能）：用于扫描代码仓库中的可选外联请求、遥测上报（Telemetry）、公网 CDN 依赖以及推广弹窗 UI，结合调用方上下文进行业务语义研判，进而生成**可审阅、可验证、可字节级无损回滚**的精确离线化改造计划。
 
 * **本地零外联扫描**：CLI 本身完全在本地运行，不发送任何云端模型或 API 请求，也不在扫描阶段执行目标仓库代码。
 * **审慎改造**：扫描结果仅为候选证据而非恶意判定；未明确勾选停用的功能默认全部保留（`KEEP`）。
 
 > [!NOTE]
-> **项目状态：Alpha。** 已在自带样例和 4 个真实开源项目上验证（见 [基准测试结果](benchmarks/RESULTS.md)），仍会有误报和漏报，欢迎提 Issue。
+> 已在 dify、open-webui、lobe-chat、text-generation-webui 4 个真实开源项目上实测（见 [基准测试结果](benchmarks/RESULTS.md)），版本迭代记录见 [CHANGELOG](CHANGELOG.md)。
 
 ### 离线就绪提示（无需改代码）
 
@@ -126,11 +126,11 @@ repo-airgap auth user-add --database /private/auth.sqlite3 --email user@example.
 
 如需让 AI 编程助手发现该技能，请先安装 CLI，再将项目目录（含 `SKILL.md` 和 `references/`）放置到对应 Agent 的 skills 目录下（例如 Codex 通常使用 `~/.codex/skills/repo-airgap/`），通过 `$repo-airgap` 唤醒并指定目标仓库与改造范围。
 
-执行打包脚本可生成自包含分发包 `dist/repo-airgap-skill-0.1.0.zip`（内含 Skill、CLI 源码、规则、参考文档与测试，不含虚拟环境与目标仓库审计证据）。
+执行打包脚本可生成自包含分发包 `dist/repo-airgap-skill-<version>.zip`（内含 Skill、CLI 源码、规则、参考文档与测试，不含虚拟环境与目标仓库审计证据）。
 
 ## 可选集成工具
 
-* **导入本地 Semgrep JSON/SARIF**：`repo-airgap scan /target --semgrep-report /reports/semgrep.json`（0.1 版支持导入显式源码文件路径与规则 ID，暂不支持完整污点追踪链与 SARIF artifact-index 引用）。
+* **导入本地 Semgrep JSON/SARIF**：`repo-airgap scan /target --semgrep-report /reports/semgrep.json`（目前支持导入显式源码文件路径与规则 ID，暂不支持完整污点追踪链与 SARIF artifact-index 引用）。
 * **mitmproxy 流量导出器**：可选脚本 [`scripts/mitmproxy_export.py`](scripts/mitmproxy_export.py) 可导出标准化运行时外联元数据（自动剥离请求体、请求头与 URL 查询参数）。
 * **导入运行时观测记录**：`repo-airgap verify /target --observations /reports/runtime.json`（OpenSnitch 记录可手动转换为对应格式导入）。
 
@@ -143,6 +143,7 @@ repo-airgap auth user-add --database /private/auth.sqlite3 --email user@example.
 * **支持精确补丁的语言**：支持 Python / JS / TS / JSX / TSX / Vue / Svelte / HTML（规划与应用阶段会校验 Python 语法，前端与框架编译需通过目标项目自身的构建命令验证；其他语言请使用单独审阅的手工补丁）。
 * **验证命令执行**：`verify` 仅以无 Shell 推断的 JSON 参数数组方式运行用户显式提供的命令，请在受控隔离环境中执行测试。
 * **不提供操作系统级断网担保**：**CLI 不会断开操作系统网络，也不对目标项目出具“100% 绝对离线可用”担保。** 请在实际网络隔离环境下验证核心业务链路并收集独立运行时证据。
+* **误报与漏报**：面对陌生代码库，静态规则仍会有误报和漏报，欢迎提 Issue。
 * **法律与版权保护启发式规则**：自动跳过法律文件并阻止修改匹配到的版权/授权校验行属于保守防护机制，分发修改后的代码仍须人工核查并遵守上游开源协议。
 
 ## 开发与可复现演示
