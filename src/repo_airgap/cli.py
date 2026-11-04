@@ -18,6 +18,37 @@ from .patcher.verifier import verify
 from .reporter import csv_report, report
 from .review import display_inventory, review, save_choices
 from .safety import repository, state_dir
+from .scanner.offline_hints import env_file
+
+
+def print_hints(hints):
+    if not hints:
+        return
+    table = Table(title="Offline readiness hints — config switches and downloads to stage (no source edits)")
+    table.add_column("Kind")
+    table.add_column("Detected")
+    table.add_column("Evidence")
+    table.add_column("Switch / action")
+    for hint in hints:
+        if hint["env"]:
+            action = "\n".join(
+                f"{e['name']}={e['recommended']}" + (" (set)" if e["status"] == "present" else "")
+                for e in hint["env"]
+            )
+        else:
+            action = hint["advice"]
+        if hint["type"] == "switch":
+            manifests = hint.get("manifests", [])
+            evidence = ", ".join(hint.get("packages", [])[:3]) + "\n" + (manifests[0] if manifests else "")
+            if len(manifests) > 1:
+                evidence += f"\n(+{len(manifests) - 1} more manifests)"
+        else:
+            evidence = "\n".join(hint["evidence"][:2])
+            if hint.get("occurrences", 0) > 2:
+                evidence += f"\n(+{hint['occurrences'] - 2} more)"
+        table.add_row(hint["kind"], hint["name"], evidence, action)
+    Console().print(table)
+    print("Suggested overrides: .airgap/offline.env (review before use).")
 
 
 def parser():
@@ -34,6 +65,9 @@ def parser():
     s.add_argument("--severity", choices=tuple(SEVERITIES), default="INFO")
     s.add_argument("--rules-dir", type=Path)
     s.add_argument("--semgrep-report", type=Path)
+    s.add_argument(
+        "--include-tests", action="store_true", help="Also report candidates in test/fixture/spec files"
+    )
     s = subs.add_parser(
         "review", help="List outbound purposes and record user choices; unspecified items stay KEEP"
     )
@@ -85,6 +119,7 @@ def main(argv=None):
                 ignore_ids=args.ignore_id,
                 min_severity=args.severity,
                 semgrep_report=args.semgrep_report,
+                include_tests=args.include_tests,
             ).to_dict()
             output = args.output.resolve() if args.output else state / "audit_candidates.json"
             # Do not allow --output to overwrite arbitrary source in a read-only audit.
@@ -101,11 +136,13 @@ def main(argv=None):
                 "review_inventory.json",
                 "user_choices.json",
                 "auth_inventory.json",
+                "offline.env",
             ):
                 raise ValueError("Scan output cannot overwrite a reserved state artifact")
             dump_json(state / "audit_candidates.json", result)
             dump_json(state / "outbound_inventory.json", build_outbound_inventory(result))
             dump_json(state / "review_prompt.json", build_prompt(result))
+            atomic_write(state / "offline.env", env_file(result["offline_hints"]).encode("utf-8"))
             if output != state / "audit_candidates.json":
                 dump_json(output, result)
             if args.format == "json":
@@ -119,6 +156,7 @@ def main(argv=None):
                 for category, count in result["summary"].items():
                     table.add_row(category, str(count))
                 Console().print(table)
+                print_hints(result["offline_hints"])
                 print(
                     f"Evidence: {state}\nFiles: {result['total_files_scanned']}; warnings: {len(result['warnings'])}"
                 )

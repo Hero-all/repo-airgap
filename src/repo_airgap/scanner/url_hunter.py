@@ -12,10 +12,36 @@ CLIENT = re.compile(
     re.I,
 )
 NET_CONFIG = re.compile(r"(?:url|host|endpoint|base_url|baseurl|server|webhook|domain)\s*[:=]", re.I)
+# URIs used as identifiers (XML namespaces, JSON Schema, spec links) that clients do not fetch.
+IDENTIFIER_HOSTS = {
+    "www.w3.org",
+    "w3.org",
+    "json-schema.org",
+    "schemas.openxmlformats.org",
+    "schemas.microsoft.com",
+    "purl.org",
+    "ns.adobe.com",
+    "schemas.xmlsoap.org",
+    "www.apache.org",
+}
 
 
 def domain_matches(host, domains):
     return any(host == d or host.endswith("." + d) for d in domains)
+
+
+def is_local_host(host):
+    """Loopback, private IPs and single-label names (e.g. Docker service `api`) are not internet egress."""
+    if host == "dynamic":
+        return False
+    host = host.strip("[]").lower()
+    if host in ("localhost", "0.0.0.0") or host.endswith((".localhost", ".local", ".internal")):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+        return not ip.is_global
+    except ValueError:
+        return "." not in host
 
 
 def comment_line(line):
@@ -62,6 +88,13 @@ def destinations(line, whitelist):
             ip = ipaddress.ip_address(match.group())
         except ValueError:
             continue
+        before = line[: match.start()].rstrip()
+        after = line[match.end() :]
+        # Version strings (pkg==1.2.1.0, Chrome/130.0.0.0, >= 4.3.5.1) and CIDR ranges are not destinations.
+        if before.endswith(("=", "<", ">", "~", "/", "v", "V", "@")) or re.match(r"/\d", after):
+            continue
+        if re.search(r"(?i)version|\bver\b|<path|\sd=[\"']|points=[\"']|viewBox", line):
+            continue  # version text or inline SVG geometry (e.g. d="M3.138.75.75")
         if ip.is_global and str(ip) not in seen:
             yield {
                 "content": str(ip),

@@ -149,6 +149,31 @@ def report(root):
         lines.append(
             "Not verified. Run project builds/tests and critical flows in an isolated offline environment."
         )
+    lines.extend(["", "## Offline readiness hints", ""])
+    hints = scan.get("offline_hints", [])
+    if hints:
+        lines.extend(
+            [
+                "Configuration switches and downloads detected from manifests and code. These are",
+                "not source edits; see `.airgap/offline.env` for suggested overrides.",
+                "",
+                "| Kind | Detected | Evidence | Switch / action | Reference |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for hint in hints:
+            action = (
+                "<br>".join(
+                    f"`{e['name']}={e['recommended']}` ({e['status']})" for e in hint.get("env", [])
+                )
+                or _cell(hint.get("advice", ""))
+            )
+            lines.append(
+                f"| {hint['kind']} | {_cell(hint['name'])} | {_cell(', '.join(hint.get('evidence', [])[:3]))} | "
+                f"{action} | {_cell(hint.get('reference') or '')} |"
+            )
+    else:
+        lines.append("No known framework switches or download signals detected.")
     lines.extend(["", "## Coverage and limitations", ""])
     lines.extend("- " + _cell(item) for item in scan.get("limitations", []) + scan.get("warnings", []))
     lines.extend(

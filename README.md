@@ -30,6 +30,17 @@ Version 0.1 provides a local Python CLI and an Agent Skill for reviewing optiona
 
 The CLI makes **no remote model or API requests** and **does not execute target code** during scanning. Scan results are review candidates, not malice verdicts.
 
+> [!NOTE]
+> **Project status: alpha.** Validated on the bundled fixture and on four real open-source projects (see [benchmarks](benchmarks/RESULTS.md)). Expect false positives and gaps; please report them.
+
+### ⚡ Offline readiness hints (no code changes)
+
+Many frameworks ship an **official switch** to disable telemetry or force offline mode. `scan` detects them from your manifests (`package.json`, `requirements*.txt`, `pyproject.toml`) and code, checks whether each switch is already set anywhere in the repository, and writes the missing ones to `.airgap/offline.env`. The screenshot above is the real, unedited output of `repo-airgap scan` on [text-generation-webui](https://github.com/oobabooga/text-generation-webui).
+
+It covers 27 frameworks/tools (Next.js, Nuxt, Gatsby, Astro, Storybook, Angular CLI, Turborepo, Expo, Prisma, Cypress, Playwright, Puppeteer, Electron, Hugging Face, Gradio, Streamlit, Chroma, Ray, W&B, Haystack, Unstructured, Semgrep, tiktoken, .NET, Yarn Berry, …). It also flags build-time and runtime downloads: `from_pretrained`, `hf_hub_download`, `nltk.download`, `torch.hub.load`, tiktoken encodings, `next/font/google`, and Dockerfile `RUN` fetches or public base images. Rules live in [`rules/offline_switches.json`](rules/offline_switches.json), and each entry links to its official documentation.
+
+By default, test/fixture/spec files, minified bundles, and loopback/private/single-label hosts (e.g. `localhost`, `10.x`, Docker service names) are excluded from candidates. Use `--include-tests` to scan tests too.
+
 ## 🚀 Install
 
 Python 3.11+ is required.
@@ -126,7 +137,7 @@ See [runtime evidence format and limits](references/runtime.md).
 
 ## ⚠️ Scope and Limits
 
-* **Static Coverage**: Scan covers UTF-8 source, nested `.gitignore`, URLs, quoted bare domains, public IPs, common HTTP/socket/DNS/upload calls, telemetry manifests/imports, promotion keywords, and environment/container switches. It skips generated, binary, linked, oversized, and legal files. A 3–5 second scan is a design target, not a measured guarantee for arbitrary repositories.
+* **Static Coverage**: Scan covers UTF-8 source, nested `.gitignore`, URLs, quoted bare domains, public IPs, common HTTP/socket/DNS/upload calls, telemetry manifests/imports, promotion keywords, and environment/container switches. It skips generated, binary, linked, oversized, minified, and legal files, plus tests and locale catalogs by default. Measured scan time on real projects ranges from about 1 s (144 files) to about 70 s (23k files); see [benchmarks](benchmarks/RESULTS.md).
 * **Static Analysis Boundaries**: Static rules do not prove complete data flow. A nearest function declaration is a navigation hint. Credentials/high-entropy strings near a sink are review signals, not standalone exfiltration findings. Dynamic destinations stay unknown.
 * **Supported Edit Languages**: Exact source edits support Python/JS/TS/JSX/TSX/Vue/Svelte/HTML. Python syntax is checked during planning/application; JS/TS and framework builds require the target's build commands. Other languages use separately reviewed manual patches.
 * **Verification Execution**: `verify` runs only supplied argv commands with no inferred shell or project installation. Those commands execute code: use a suitable isolated environment. It records results, not semantic equivalence. No supplied commands means `not_verified`.

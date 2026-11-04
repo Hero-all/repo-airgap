@@ -31,6 +31,17 @@
 * **本地零外联扫描**：CLI 本身完全在本地运行，不发送任何云端模型或 API 请求，也不在扫描阶段执行目标仓库代码。
 * **审慎改造**：扫描结果仅为候选证据而非恶意判定；未明确勾选停用的功能默认全部保留（`KEEP`）。
 
+> [!NOTE]
+> **项目状态：Alpha。** 已在自带样例和 4 个真实开源项目上验证（见 [基准测试结果](benchmarks/RESULTS.md)），仍会有误报和漏报，欢迎提 Issue。
+
+### ⚡ 离线就绪提示（无需改代码）
+
+很多框架官方就提供了关闭遥测或强制离线的开关。`scan` 会根据依赖清单（`package.json`、`requirements*.txt`、`pyproject.toml`）和代码识别这些框架，检查仓库里是否已经设置了对应开关，并把缺失的开关写入 `.airgap/offline.env`。上方截图就是对 [text-generation-webui](https://github.com/oobabooga/text-generation-webui) 执行 `repo-airgap scan` 的真实输出，未经修改。
+
+目前覆盖 27 个框架/工具（Next.js、Nuxt、Gatsby、Astro、Storybook、Angular CLI、Turborepo、Expo、Prisma、Cypress、Playwright、Puppeteer、Electron、Hugging Face、Gradio、Streamlit、Chroma、Ray、W&B、Haystack、Unstructured、Semgrep、tiktoken、.NET、Yarn Berry 等），并能识别构建期/运行期下载：`from_pretrained`、`hf_hub_download`、`nltk.download`、`torch.hub.load`、tiktoken 编码文件、`next/font/google`、Dockerfile 中的 `RUN` 联网安装与公网基础镜像。规则见 [`rules/offline_switches.json`](rules/offline_switches.json)，每条都附官方文档链接。
+
+默认不把测试/fixture/spec 文件、压缩打包产物，以及 `localhost`、内网 IP、Docker 服务名等本地地址计入候选；如需扫描测试代码，加 `--include-tests`。
+
 ## 🚀 安装指南
 
 需要 Python 3.11 及以上版本。

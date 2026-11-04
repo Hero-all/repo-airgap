@@ -8,10 +8,11 @@ from .models import SEVERITIES, Candidate, ScanReport, ScanSummary
 from .patcher.dockerfile_auditor import config_match
 from .scanner.auth_detector import AUTH_SIGNALS
 from .scanner.dep_auditor import dependency_names, imported_packages
-from .scanner.file_walker import read_source, walk_files
+from .scanner.file_walker import is_locale_data, is_test_path, looks_minified, read_source, walk_files
+from .scanner.offline_hints import OfflineHintCollector
 from .scanner.sink_hunter import network_sinks, related_signals
 from .scanner.ui_detector import ui_matches
-from .scanner.url_hunter import comment_line, destinations, domain_matches
+from .scanner.url_hunter import IDENTIFIER_HOSTS, comment_line, destinations, domain_matches, is_local_host
 
 LANGUAGES = {
     ".py": "python",
@@ -30,13 +31,18 @@ def rules_directory():
     return bundled if bundled.is_dir() else Path(__file__).resolve().parents[2] / "rules"
 
 
-def scan(root, *, rules_dir=None, ignore_ids=(), min_severity="INFO", semgrep_report=None):
+def scan(
+    root, *, rules_dir=None, ignore_ids=(), min_severity="INFO", semgrep_report=None, include_tests=False
+):
     rules = Path(rules_dir) if rules_dir else rules_directory()
     telemetry = load_json(rules / "telemetry_domains.json")
     whitelist = load_json(rules / "whitelist_domains.json")["domains"]
     promo = load_json(rules / "promo_keywords.json")["keywords"]
     packages = set(telemetry["telemetry_packages"])
+    switches = rules / "offline_switches.json"
+    hints = OfflineHintCollector(load_json(switches) if switches.is_file() else {})
     warnings, candidates, documents = [], [], {}
+    skipped = {"tests": 0, "minified": 0, "local_urls": 0, "identifier_urls": 0, "locale": 0}
 
     def add(path, lines, digest, n, category, rule, content, severity="MEDIUM", **extra):
         start, end, snippet, function = extract_context(lines, n)
@@ -71,18 +77,42 @@ def scan(root, *, rules_dir=None, ignore_ids=(), min_severity="INFO", semgrep_re
         raw, text = doc
         lines, digest = text.splitlines(), sha256(raw)
         documents[path] = (lines, digest)
-        if path.suffix.lower() in (".md", ".rst", ".txt") and not path.name.startswith("requirements"):
+        rel = path.relative_to(root).as_posix()
+        hints.add_file(rel)
+        if path.suffix.lower() in (".md", ".mdx", ".rst", ".txt") and not path.name.startswith("requirements"):
             continue
         deps = dependency_names(path, text, warnings)
+        hints.add_manifest(rel, deps)
+        # Manifests above still count for hints; test code and minified bundles do not produce candidates.
+        if not include_tests and is_test_path(rel):
+            skipped["tests"] += 1
+            continue
+        if is_locale_data(rel):
+            skipped["locale"] += 1
+            continue
+        if looks_minified(text, lines):
+            skipped["minified"] += 1
+            warnings.append(f"Skipped likely minified/vendored bundle: {rel}")
+            continue
         for n, line in enumerate(lines, 1):
-            if comment_line(line):
+            is_comment = comment_line(line)
+            hints.add_line(rel, n, line, is_comment)
+            if is_comment:
                 continue
             if AUTH_SIGNALS.search(line):
                 add(path, lines, digest, n, "AUTH_PROVIDER", "google_authentication", line.strip(), "MEDIUM")
             sinks = network_sinks(line)
             nearby = "\n".join(lines[max(0, n - 6) : n + 5])
             signals = related_signals(nearby) if sinks else []
-            targets = list(destinations(line, whitelist))
+            found = list(destinations(line, whitelist))
+            targets = [t for t in found if not is_local_host(t["destination"])]
+            skipped["local_urls"] += len(found) - len(targets)
+            if found and not targets:
+                sinks = []  # every destination on this line is loopback/private/service-local
+            if not sinks:
+                kept = [t for t in targets if t["destination"] not in IDENTIFIER_HOSTS]
+                skipped["identifier_urls"] += len(targets) - len(kept)
+                targets = kept
             for target in targets:
                 severity = target.pop("severity")
                 content = target.pop("content")
@@ -119,11 +149,11 @@ def scan(root, *, rules_dir=None, ignore_ids=(), min_severity="INFO", semgrep_re
                     sink_type=sink,
                     related_signals=signals,
                 )
+            imports = imported_packages(line) if ("import" in line or "require" in line or "from" in line) else []
             for pkg in sorted(packages):
                 is_dep = pkg in deps and (f'"{pkg}"' in line or re_package(pkg, line))
                 is_import = any(
-                    p == pkg or p.replace("_", "-") == pkg or p.startswith(pkg + "/")
-                    for p in imported_packages(line)
+                    p == pkg or p.replace("_", "-") == pkg or p.startswith(pkg + "/") for p in imports
                 )
                 if is_dep or is_import:
                     add(path, lines, digest, n, "TELEMETRY_SDK", "telemetry_package", pkg)
@@ -153,6 +183,18 @@ def scan(root, *, rules_dir=None, ignore_ids=(), min_severity="INFO", semgrep_re
                 related_signals=["external_analysis_unclassified"],
             )
     candidates.sort(key=lambda c: (c.file_path, c.line_number, c.matched_rule, c.matched_content))
+    if skipped["tests"]:
+        warnings.append(
+            f"Skipped {skipped['tests']} test/fixture files (use --include-tests to scan them)."
+        )
+    if skipped["local_urls"]:
+        warnings.append(f"Ignored {skipped['local_urls']} loopback/private/single-label URL destinations.")
+    if skipped["identifier_urls"]:
+        warnings.append(
+            f"Ignored {skipped['identifier_urls']} identifier URIs (XML namespaces/JSON Schema) without a network call."
+        )
+    if skipped["locale"]:
+        warnings.append(f"Skipped {skipped['locale']} translation/locale data files (display text).")
     # IDs do not change merely because a severity/rule filter was applied.
     for i, c in enumerate(candidates, 1):
         c.id = f"CAND-{i:05d}"
@@ -170,6 +212,7 @@ def scan(root, *, rules_dir=None, ignore_ids=(), min_severity="INFO", semgrep_re
         filtered,
         warnings,
         len(candidates) - len(filtered),
+        hints.results(),
     )
 
 

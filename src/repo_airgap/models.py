@@ -48,6 +48,7 @@ class ScanReport:
     candidates: list[Candidate]
     warnings: list[str] = field(default_factory=list)
     suppressed_count: int = 0
+    offline_hints: list[dict] = field(default_factory=list)
     limitations: list[str] = field(
         default_factory=lambda: [
             "Heuristic static analysis; no whole-program data-flow proof.",

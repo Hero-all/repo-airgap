@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import pathspec
@@ -67,6 +68,33 @@ def protected_name(path):
         name == n or name.startswith(n + ".") or name.startswith(n + "-")
         for n in ("license", "licence", "notice", "copying", "copyright")
     )
+
+
+TEST_PATH = re.compile(
+    r"(^|/)(tests?|__tests__|spec|specs|e2e|fixtures?|__mocks__|mocks?|testdata|test-data)(/|$)"
+    r"|\.(test|spec|stories)\.[cm]?[jt]sx?$|(^|/)test_[^/]+\.py$|(^|/)[^/]+_test\.(py|go)$|(^|/)conftest\.py$",
+    re.I,
+)
+
+
+def is_test_path(relative_posix):
+    return bool(TEST_PATH.search(relative_posix))
+
+
+LOCALE_DATA = re.compile(r"(^|/)(i18n|locales?|lang|langs|translations?)/.*\.(json|ya?ml|po|properties)$", re.I)
+
+
+def is_locale_data(relative_posix):
+    """Translation catalogs: URLs there are display links, not network calls."""
+    return bool(LOCALE_DATA.search(relative_posix))
+
+
+def looks_minified(text, lines):
+    """Vendored/minified bundles: a few enormous lines. Their URLs are mostly library internals."""
+    if len(text) < 20_000:
+        return False
+    longest = max((len(line) for line in lines), default=0)
+    return longest > 5_000 and len(text) / max(1, len(lines)) > 300
 
 
 def is_link(path):
