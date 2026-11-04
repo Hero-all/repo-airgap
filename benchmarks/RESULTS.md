@@ -37,11 +37,14 @@ Before this round, the same scan of **dify produced 11,886 candidates and a 358 
 
 - **dify**: Google Analytics / GTM / Amplitude hosts and `@amplitude/analytics-browser`, `sentry-sdk`,
   `@sentry/react`; `s.connect(("8.8.8.8", 53))` in the Apollo config helper (a local-IP trick that
-  fails in an air gap); `NEXT_TELEMETRY_DISABLED` already set in `docker/envs/core-services/web.defaults`.
+  fails in an air gap); `NEXT_TELEMETRY_DISABLED=1` set in `web/Dockerfile` and a CI workflow (its
+  entry in `docker/envs/core-services/web.defaults` is interpolated, so round 3 reports it as
+  evidence without a literal value).
 - **lobe-chat**: Plausible, PostHog, Microsoft Clarity, GTM hosts; `@vercel/analytics`,
   `@vercel/speed-insights`; Next.js telemetry switch **not** set.
 - **open-webui**: correctly reported as already setting `SCARF_NO_ANALYTICS`, `DO_NOT_TRACK`,
-  `ANONYMIZED_TELEMETRY` (`Dockerfile`, `.env.example`), `HF_HUB_OFFLINE` (`backend/open_webui/env.py`),
+  `ANONYMIZED_TELEMETRY` (`Dockerfile`; its `.env.example` entry is no longer counted as
+  configuration since round 3), `HF_HUB_OFFLINE` (`backend/open_webui/env.py`),
   and `TIKTOKEN_CACHE_DIR`; `TRANSFORMERS_OFFLINE` reported missing.
 - **text-generation-webui**: `GRADIO_ANALYTICS_ENABLED` set in `server.py`, `WANDB_MODE=offline` set in
   `training.py`; `from_pretrained` / `hf_hub_download` / tiktoken runtime downloads; Dockerfile fetches.
@@ -55,7 +58,9 @@ Before this round, the same scan of **dify produced 11,886 candidates and a 358 
 - Config keys that look like domains (`'webui.url'`) can be reported as bare domains.
 - Dependencies inside `node_modules` / site-packages are **not** scanned; framework telemetry is covered
   only through the switch database (`rules/offline_switches.json`).
-- No AST: multi-line calls, URLs assembled at runtime, and URLs loaded from config files are missed.
+- No AST. Round 3 added per-file tracking of import aliases, client instances, multi-line call
+  arguments, same-file URL constants and config references; values that cross files or function
+  parameters are still missed.
 
 ## Round 2: sink precision and grouping (branch `feat/reduce-review-noise`)
 
@@ -83,6 +88,36 @@ What changed:
 
 Still not solved: lobe-chat has ~470 distinct literal hosts (model-provider endpoints, icons, CDNs).
 Each is a separate review item, so its review list is still long.
+
+## Round 3: switch status and common missed calls (after external review of v0.3.0)
+
+Same repositories and commits; v0.3.0 (`40c15b9`) versus this round, run back to back on the same
+machine with nothing else running. Times are much higher than in the first table because Windows
+Defender was scanning the clones this time; compare the two columns with each other only.
+
+| Project | Time (s) | Network sinks | HIGH sinks | Sinks with a resolved host or `config:` | Switch statuses |
+| --- | ---: | ---: | ---: | ---: | --- |
+| text-generation-webui | 0.9 → 1.2 | 12 → 22 | 12 → 22 | 0 → 1 | 2 `present` → 2 `configured` |
+| open-webui | 14.3 → 17.5 | 667 → 726 | 166 → 200 | 501 → 539 | 5 `present` → 5 `configured` |
+| lobe-chat | 94.9 → 110.8 | 449 → 449 | 372 → 336 | 64 → 118 | unchanged (4 `missing`) |
+| dify | 65.1 → 75.3 | 218 → 237 | 215 → 222 | 6 → 20 | 1 `present` → 1 `configured` |
+
+- **New sinks are calls that were missed before**, mostly through client instances: `session.get`
+  in text-generation-webui's `download-model.py`, `self.session.post` in `llama_cpp_server.py`,
+  `async with session.post(` in open-webui, `client.request(` in dify, `xhr.open('PUT', url)` in
+  lobe-chat, plus aliases such as `urllib_request.urlopen` (dify) and aiohttp `ClientSession`
+  imported by name (open-webui). Samples were read by hand.
+- **Fewer anonymous `dynamic` sinks in lobe-chat** (364 → 310): same-file constants such as
+  `fetch(TOKEN_URL)` now resolve to the host, and `config.tokenEndpoint` / `SLACK_OAUTH_ACCESS_URL`
+  become `config:<NAME>`.
+- **False positives found in the first pass of this round and fixed before measuring:** undici
+  `new Agent()` dispatchers were reported as requests, and a Worker `fetch(request, env) {` handler
+  borrowed a `config:` label from a call inside its body. Both have regression tests.
+- **Switch statuses did not change on these four projects**, because their real settings are in
+  Dockerfiles and code. The reported bug (a `.env.example` value counted as configuration, and
+  `NEXT_TELEMETRY_DISABLED=0` shown as "already set: =1") is covered by
+  `tests/test_switch_status.py`.
+- **Cost:** scans are 10–35% slower, mainly from per-file alias/instance collection.
 
 ## Reproduce
 

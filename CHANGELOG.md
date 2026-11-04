@@ -3,6 +3,49 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Fixes from an external review of v0.3.0. Each item was reproduced first; regression tests were
+confirmed to fail on v0.3.0.
+
+### Fixed
+- **Switch status overstated configuration.** `.env.example` with `NEXT_TELEMETRY_DISABLED=0` was
+  reported as `present` and `offline.env` said `# already set: NEXT_TELEMETRY_DISABLED=1`. The old
+  matcher accepted any `NAME` followed by `=`, `:` or `,`, so reads such as
+  `os.environ.get("X", "0")` and comparisons such as `process.env.X === "1"` also counted.
+  Statuses are now `configured` / `mismatch` / `conflict` / `unresolved` / `example_only` /
+  `missing`, each with location, source kind and literal value; `deployment_effect` is always
+  `unverified`. Example/template/docs files never count as configuration. Every switch that is not
+  `configured` is an active line in `offline.env`.
+- **`apply` interrupted by Ctrl+C left a half-applied transaction** (only `Exception` triggered the
+  rollback). Rollback now runs for any interruption and decides by file content, so a file replaced
+  just before the interrupt is also restored; files changed by another process are left untouched
+  and listed.
+- **Read-only files**: on Windows `apply` failed with `PermissionError` and left a read-only
+  `.airgap-write-*` temp file in the source tree; on POSIX the file would have been replaced
+  silently. Read-only targets are now refused before any write, and temp files are always removed.
+- `mutation.lock` records PID, host and start time, and the error message explains how to recover.
+  It is still never removed automatically.
+- New files created by a transaction get the umask default instead of 0600; directory entries are
+  fsynced after replace on POSIX.
+
+### Added
+- Per-file call tracking (`scanner/call_context.py`): import aliases (`import requests as rq`,
+  `from requests import post`, `import ky from 'ky'`, got/undici/node-fetch/superagent), client
+  instances created in the same file (`requests.Session`, `httpx.Client`, `aiohttp.ClientSession`,
+  `axios.create`, `XMLHttpRequest`), multi-line call arguments, URL constants assigned once in the
+  file, env/settings references (`config:<NAME>`), and `"https://" + host` concatenation.
+  Direct patterns for `EventSource`, `$.ajax`, `urllib3`, `http.client`, `websocket(s)`.
+- `env_accept` in `rules/offline_switches.json` for spellings confirmed in library source
+  (Hugging Face `1/ON/YES/TRUE`, Chroma boolean forms, W&B `disabled`, tiktoken any path).
+- Scan report limitations now state what call tracking and switch status do not cover.
+
+### Changed
+- A constructor call that closes on its own line no longer takes its destination label from the
+  next line (`requests.Session()` was labelled from the following call).
+- Benchmarks: round 3 before/after table in [benchmarks/RESULTS.md](benchmarks/RESULTS.md); scans
+  are 10–35% slower.
+
 ## [0.3.0] — 2026-11-04
 
 Precision and review-noise round, measured before/after on four real projects
