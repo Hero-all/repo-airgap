@@ -1,5 +1,6 @@
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from .analyzer.adapters import semgrep_findings
 from .analyzer.context_extractor import extract_context
@@ -7,10 +8,11 @@ from .io import load_json, redact, sha256, utcnow
 from .models import SEVERITIES, Candidate, ScanReport, ScanSummary
 from .patcher.dockerfile_auditor import config_match
 from .scanner.auth_detector import AUTH_SIGNALS
+from .scanner.call_context import FileContext, call_span, resolve_argument
 from .scanner.dep_auditor import dependency_names, imported_packages
 from .scanner.file_walker import is_locale_data, is_test_path, looks_minified, read_source, walk_files
 from .scanner.offline_hints import OfflineHintCollector
-from .scanner.sink_hunter import dynamic_destination, network_sinks, related_signals
+from .scanner.sink_hunter import CONFIG_NAME, dynamic_destination, network_sinks, related_signals
 from .scanner.ui_detector import ui_matches
 from .scanner.url_hunter import (
     IDENTIFIER_HOSTS,
@@ -101,6 +103,7 @@ def scan(
             skipped["minified"] += 1
             warnings.append(f"Skipped likely minified/vendored bundle: {rel}")
             continue
+        context = FileContext(lines, path.suffix)
         for n, line in enumerate(lines, 1):
             is_comment = comment_line(line)
             hints.add_line(rel, n, line, is_comment)
@@ -109,8 +112,13 @@ def scan(
             if AUTH_SIGNALS.search(line):
                 add(path, lines, digest, n, "AUTH_PROVIDER", "google_authentication", line.strip(), "MEDIUM")
             sinks = network_sinks(line)
+            via = context.call_kind(line)
+            if via and "http_client" not in sinks:
+                sinks.append("http_client")
             nearby = "\n".join(lines[max(0, n - 6) : n + 5])
             signals = related_signals(nearby) if sinks else []
+            if via:
+                signals.append(via)
             found = list(destinations(line, whitelist))
             targets = [t for t in found if not is_local_host(t["destination"])]
             skipped["local_urls"] += len(found) - len(targets)
@@ -145,16 +153,18 @@ def scan(
                     related_signals=target_signals,
                 )
             if sinks and len(targets) != 1:
-                following = lines[n] if n < len(lines) else ""
-                dynamic = dynamic_destination(line + " " + following.strip())
+                dynamic, dynamic_severity, dynamic_signal = sink_destination(
+                    lines, n, whitelist, context, bool(targets)
+                )
             else:
-                dynamic = None
+                dynamic = dynamic_severity = dynamic_signal = None
+            if dynamic is not None and dynamic_severity is None:
+                sinks = []  # resolved to a loopback/private/service-local constant
             for sink in sinks:
                 if len(targets) == 1:
                     destination, severity = targets[0]["destination"], "HIGH"
                 else:
-                    destination = dynamic
-                    severity = {"self": "LOW"}.get(destination, "MEDIUM" if destination.startswith("config:") else "HIGH")
+                    destination, severity = dynamic, dynamic_severity
                 add(
                     path,
                     lines,
@@ -167,7 +177,7 @@ def scan(
                     destination=destination,
                     port=targets[0].get("port") if len(targets) == 1 else None,
                     sink_type=sink,
-                    related_signals=signals,
+                    related_signals=signals + ([dynamic_signal] if dynamic_signal else []),
                 )
             imports = imported_packages(line) if ("import" in line or "require" in line or "from" in line) else []
             for pkg in sorted(packages):
@@ -234,6 +244,41 @@ def scan(
         len(candidates) - len(filtered),
         hints.results(),
     )
+
+
+def sink_destination(lines, n, whitelist, context, has_targets):
+    """(destination, severity, signal) for a sink without exactly one literal target on its line.
+
+    Severity None means the destination resolved to a local host and the sink should be dropped.
+    """
+    span = call_span(lines, n)
+    code = " ".join(part.strip() for part in span)
+    if not has_targets and len(span) > 1:
+        # requests.get(\n    "https://host/x",\n): the literal lives inside the same call.
+        hosts = {
+            t["destination"]
+            for part in span[1:]
+            if not comment_line(part)
+            for t in destinations(part, whitelist)
+            if t["destination"] not in IDENTIFIER_HOSTS
+        }
+        external = {h for h in hosts if not is_local_host(h)}
+        if len(external) == 1:
+            return external.pop(), "HIGH", "multiline_call"
+        if hosts and not external:
+            return "local", None, None
+    destination = dynamic_destination(code)
+    if destination == "dynamic":
+        resolved, signal = resolve_argument(code, context.constants, CONFIG_NAME)
+        if resolved and resolved.startswith("config:"):
+            return resolved, "MEDIUM", signal
+        if resolved:
+            host = (urlsplit(resolved).hostname or "dynamic").lower()
+            if is_local_host(host):
+                return host, None, None
+            return host, "HIGH", signal
+        return "dynamic", "HIGH", None
+    return destination, {"self": "LOW"}.get(destination, "MEDIUM"), None
 
 
 def re_package(package, line):

@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 URL = re.compile(r"(?:https?|wss?)://[^\s\"'`<>\\)\]}]+", re.I)
 BARE = re.compile(r"[\"']((?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,63})(?::(\d{1,5}))?(?:/[^\"']*)?[\"']")
 IP = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
+CONCATENATED = re.compile(r"([`'\"])(https?|wss?)://\1\s*\+", re.I)
 HTTP_METHODS = "get|post|put|patch|delete|head|options|request|stream"
 CLIENT = re.compile(
     r"(?<![\w$])fetch\s*\("
@@ -15,7 +16,11 @@ CLIENT = re.compile(
     + r"|Client|AsyncClient|ClientSession|Session)\s*\("
     r"|(?<![\w$.])urllib\.(?:request\.)?(?:urlopen|urlretrieve|Request)\s*\(|(?<![\w$.])urlopen\s*\("
     r"|\bhttp\.(?:Get|Post|Do|NewRequest)\s*\("
-    r"|navigator\.sendBeacon\s*\(|new\s+WebSocket\s*\(|(?<![\w$])https?\.(?:request|get)\s*\(",
+    r"|navigator\.sendBeacon\s*\(|new\s+WebSocket\s*\(|(?<![\w$])https?\.(?:request|get)\s*\("
+    # Other common clients that need no alias tracking.
+    r"|new\s+EventSource\s*\(|(?<![\w$])(?:\$|jQuery)\.(?:ajax|get|post|getJSON)\s*\("
+    r"|(?<![\w$.])urllib3\.(?:request|PoolManager)\s*\(|(?<![\w$.])http\.client\.HTTPS?Connection\s*\("
+    r"|(?<![\w$.])websocket\.create_connection\s*\(|(?<![\w$.])websockets\.connect\s*\(",
 )
 NET_CONFIG = re.compile(r"(?:url|host|endpoint|base_url|baseurl|server|webhook|domain)\s*[:=]", re.I)
 # URIs used as identifiers (XML namespaces, JSON Schema, spec links) that clients do not fetch.
@@ -97,6 +102,19 @@ def destinations(line, whitelist):
             "protocol": parsed.scheme,
             "rule": "hardcoded_external_url",
             "severity": "LOW" if domain_matches(host, whitelist) else "HIGH",
+        }
+    # "https://" + host + "/path": the scheme is literal, the host is computed.
+    for match in CONCATENATED.finditer(line):
+        if "dynamic" in seen:
+            break
+        seen.add("dynamic")
+        yield {
+            "content": match[0],
+            "destination": "dynamic",
+            "port": None,
+            "protocol": match[2].lower(),
+            "rule": "concatenated_url",
+            "severity": "MEDIUM",
         }
     if CLIENT.search(line) or NET_CONFIG.search(line):
         for match in BARE.finditer(line):
