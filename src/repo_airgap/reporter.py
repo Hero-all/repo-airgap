@@ -155,7 +155,10 @@ def report(root):
         lines.extend(
             [
                 "Configuration switches and downloads detected from manifests and code. These are",
-                "not source edits; see `.airgap/offline.env` for suggested overrides.",
+                "not source edits; see `.airgap/offline.env` for suggested overrides. Switch status",
+                "describes repository files only: `configured` means a non-example file assigns the",
+                "recommended value, not that the deployed process receives it; `example_only` values",
+                "come from example/template/docs files and are not treated as configuration.",
                 "",
                 "| Kind | Detected | Evidence | Switch / action | Reference |",
                 "| --- | --- | --- | --- | --- |",
@@ -164,7 +167,10 @@ def report(root):
         for hint in hints:
             action = (
                 "<br>".join(
-                    f"`{e['name']}={e['recommended']}` ({e['status']})" for e in hint.get("env", [])
+                    f"`{e['name']}={e['recommended']}` ({e['status']}"
+                    + (f": {_cell(', '.join(e.get('found_in', [])[:2]))}" if e.get("found_in") else "")
+                    + ")"
+                    for e in hint.get("env", [])
                 )
                 or _cell(hint.get("advice", ""))
             )
