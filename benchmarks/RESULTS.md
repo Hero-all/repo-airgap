@@ -48,14 +48,41 @@ Before this round, the same scan of **dify produced 11,886 candidates and a 358 
 
 ## Known remaining noise and gaps
 
-- **Frontend calls to the app's own backend** (`fetch(`${WEBUI_BASE_URL}/api/...`)`) are reported as
-  `NETWORK_SINK` with destination `dynamic`. They make up most of the ~600–700 sinks per large project.
-- **Documentation links** in product code (`docs.dify.ai`, `docs.openwebui.com`, `github.com`) are
-  reported as outbound URLs, although most are rendered as links and never fetched by the server.
+- ~~Frontend calls to the app's own backend reported as `dynamic`~~ — addressed in round 2 below
+  (`self` / `config:<NAME>`); calls through plain variables (`fetch(url)`) are still `dynamic`.
+- ~~Documentation links reported as outbound URLs~~ — tagged `reference_link` in round 2 when the line
+  has no call or fetching attribute; links built elsewhere are still reported normally.
 - Config keys that look like domains (`'webui.url'`) can be reported as bare domains.
 - Dependencies inside `node_modules` / site-packages are **not** scanned; framework telemetry is covered
   only through the switch database (`rules/offline_switches.json`).
 - No AST: multi-line calls, URLs assembled at runtime, and URLs loaded from config files are missed.
+
+## Round 2: sink precision and grouping (branch `feat/reduce-review-noise`)
+
+Same repositories and commits, scanned with `main` (`e3e2ad6`) and with the branch. "HIGH" is the
+number of candidates a reviewer is asked to look at first.
+
+| Project | Candidates (before → after) | HIGH (before → after) | Review items (before → after) |
+| --- | ---: | ---: | ---: |
+| dify | 1,274 → 699 | 1,062 → **430** (−60%) | 178 → 158 |
+| lobe-chat | 2,836 → 2,570 | 2,135 → **1,693** (−21%) | 523 → 503 |
+| open-webui | 1,044 → 1,020 | 936 → **308** (−67%) | 118 → 113 |
+| text-generation-webui | 151 → 145 | 40 → **33** | 10 → 10 |
+
+What changed:
+
+- **Sink precision.** 577 of dify's 725 sinks and 234 of lobe-chat's sinks were not calls:
+  `httpx.Timeout`/`httpx.Response` type hints, `except httpx.RequestError`, Drizzle columns such as
+  `scmChangeRequests.topicId`, and local variables named `requests`. A sample of the removed lines
+  was read by hand; one real call (`this.http.request({...})` in dify's Node SDK) had been dropped
+  and was restored with a regression test.
+- **Configured backends.** open-webui's 499 frontend calls like `` fetch(`${WEBUI_API_BASE_URL}/...`) ``
+  are now `config:WEBUI_API_BASE_URL` (MEDIUM) and grouped into 11 review items, one per base URL.
+- **Same-origin calls** (`fetch('/api/...')`) are `self` (LOW), one review item.
+- **Reference links** (115–172 per large project) are LOW and one review item.
+
+Still not solved: lobe-chat has ~470 distinct literal hosts (model-provider endpoints, icons, CDNs).
+Each is a separate review item, so its review list is still long.
 
 ## Reproduce
 
