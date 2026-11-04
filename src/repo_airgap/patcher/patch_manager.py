@@ -1,6 +1,7 @@
 import ast
 import base64
 import difflib
+import os
 import re
 import uuid
 from pathlib import Path
@@ -203,12 +204,35 @@ def _matches(root, file, kind):
     return target.is_file() and sha256(target.read_bytes()) == file[kind + "_sha256"]
 
 
+def default_file_mode():
+    """Mode a newly created source file would get from the user's umask (POSIX)."""
+    mask = os.umask(0)
+    os.umask(mask)
+    return 0o666 & ~mask
+
+
+def _writable(root, files):
+    """Refuse read-only targets up front: a read-only bit is an explicit "do not modify" signal."""
+    for f in files:
+        target = safe_path(root, f["file_path"])
+        if target.exists() and not os.access(target, os.W_OK):
+            raise ValueError(
+                f"File is not writable: {f['file_path']}; change its permissions deliberately first"
+            )
+
+
+def _write(root, file, data):
+    target = safe_path(root, file["file_path"])
+    new_mode = default_file_mode() if file.get("operation") == "create" else None
+    atomic_write(target, data, new_file_mode=new_mode)
+
+
 def _restore_before(root, file):
     target = safe_path(root, file["file_path"])
     if file.get("operation") == "create":
         target.unlink()
     else:
-        atomic_write(target, base64.b64decode(file["before_b64"]))
+        _write(root, file, base64.b64decode(file["before_b64"]))
 
 
 def apply_plan(root, plan_path):
@@ -231,29 +255,35 @@ def apply_plan(root, plan_path):
         for f in bundle["files"]:
             if not _matches(root, f, "before"):
                 raise ValueError(f"Source changed: {f['file_path']}")
+        _writable(root, bundle["files"])
         archive = state / ("manifest-" + bundle["id"] + ".json")
         if archive.exists():
             raise ValueError("This plan ID has already been used")
         bundle["status"] = "applying"
         bundle["started_at"] = utcnow()
         dump_json(old_path, bundle)
-        written = []
         try:
             for f in bundle["files"]:
-                target = safe_path(root, f["file_path"])
                 if not _matches(root, f, "before"):
                     raise ValueError("Source changed during transaction")
-                atomic_write(target, base64.b64decode(f["after_b64"]))
-                written.append(f)
-        except Exception:
-            for f in reversed(written):
-                target = safe_path(root, f["file_path"])
+                _write(root, f, base64.b64decode(f["after_b64"]))
+        except BaseException:
+            # Includes Ctrl+C / SystemExit: never leave a half-applied transaction behind if the
+            # process is still able to undo it. A hard kill skips this; `revert` resumes then.
+            # Decide by content, not by bookkeeping: an interrupt can land after a replace but
+            # before the write is recorded.
+            conflicts = []
+            for f in reversed(bundle["files"]):
                 if _matches(root, f, "after"):
                     _restore_before(root, f)
-                else:
-                    raise ValueError(
-                        "Interrupted apply has conflicting edits; inspect manifest snapshots"
-                    ) from None
+                elif not _matches(root, f, "before"):
+                    conflicts.append(f["file_path"])  # changed by someone else; leave it alone
+            if conflicts:
+                raise ValueError(
+                    "Interrupted apply: restored what it wrote, but these files were changed by "
+                    f"another process and were left untouched: {', '.join(conflicts)}; "
+                    "inspect .airgap/manifest.json snapshots"
+                ) from None
             bundle["status"] = "apply_failed_rolled_back"
             dump_json(old_path, bundle)
             raise
@@ -280,6 +310,7 @@ def revert(root, manifest_path=None):
                 pending.append(f)
             elif not _matches(root, f, "before"):
                 raise ValueError(f"Later edits conflict with rollback: {f['file_path']}; no files changed")
+        _writable(root, pending)
         bundle["status"] = "reverting"
         dump_json(current, bundle)
         for f in reversed(pending):

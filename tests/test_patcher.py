@@ -155,10 +155,10 @@ def test_transaction_failure_rolls_back_written_files(target, planned, monkeypat
 
     actual = patch_manager.atomic_write
 
-    def fail_second(path, data):
+    def fail_second(path, data, **kwargs):
         if path.name == "telemetry.py" and data == base64.b64decode(planned["files"][1]["after_b64"]):
             raise OSError("simulated write failure")
-        actual(path, data)
+        actual(path, data, **kwargs)
 
     monkeypatch.setattr(patch_manager, "atomic_write", fail_second)
     with pytest.raises(OSError, match="simulated"):
