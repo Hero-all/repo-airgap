@@ -2,11 +2,13 @@
 
 # 🛡️ repo-airgap — 源码隐私外联审计与内网离线化改造工具
 
+[![CI](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml/badge.svg)](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Hero-all/repo-airgap?label=Release&color=0969da)](https://github.com/Hero-all/repo-airgap/releases)
 [![License](https://img.shields.io/badge/License-MIT-0969da)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-e07a2b)](pyproject.toml)
 [![Interface](https://img.shields.io/badge/Interface-CLI%20%2B%20Agent%20Skill-4c9a2a)](SKILL.md)
-[![Patch Engine](https://img.shields.io/badge/Patch%20Engine-Transactional%20%26%20Reversible-1d76db)](#-%E4%BD%BF%E7%94%A8%E6%B5%81%E7%A8%8B)
 <br/>
+[![Patch Engine](https://img.shields.io/badge/Patch%20Engine-Transactional%20%26%20Reversible-1d76db)](#-%E4%BD%BF%E7%94%A8%E6%B5%81%E7%A8%8B)
 [![Architecture](https://img.shields.io/badge/Architecture-Human%20%2F%20Agent--in--the--Loop-7b2cbf)](#-%E6%99%BA%E8%83%BD%E4%BD%93%E6%8A%80%E8%83%BD-agent-skill)
 [![Scanner](https://img.shields.io/badge/Scanner-100%25%20Local%20%26%20Zero%20Cloud%20Calls-2ea44f)](#-%E8%83%BD%E5%8A%9B%E8%BE%B9%E7%95%8C)
 
@@ -31,7 +33,19 @@
 
 ## 🚀 安装指南
 
-需要 Python 3.11 及以上版本。在当前项目目录下执行：
+需要 Python 3.11 及以上版本。
+
+### 一键全局安装（无需手动克隆源码）
+
+```bash
+# 使用 uv（推荐）：
+uv tool install git+https://github.com/Hero-all/repo-airgap.git
+
+# 或使用 pip / pipx：
+pip install git+https://github.com/Hero-all/repo-airgap.git
+```
+
+### 本地源码安装（开发与调试）
 
 ```powershell
 uv venv --python 3.12 .venv

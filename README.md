@@ -2,11 +2,13 @@
 
 # 🛡️ repo-airgap — Privacy Audit & Air-Gapped Readiness Tool
 
+[![CI](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml/badge.svg)](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Hero-all/repo-airgap?label=Release&color=0969da)](https://github.com/Hero-all/repo-airgap/releases)
 [![License](https://img.shields.io/badge/License-MIT-0969da)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-e07a2b)](pyproject.toml)
 [![Interface](https://img.shields.io/badge/Interface-CLI%20%2B%20Agent%20Skill-4c9a2a)](SKILL.md)
-[![Patch Engine](https://img.shields.io/badge/Patch%20Engine-Transactional%20%26%20Reversible-1d76db)](#workflow)
 <br/>
+[![Patch Engine](https://img.shields.io/badge/Patch%20Engine-Transactional%20%26%20Reversible-1d76db)](#workflow)
 [![Architecture](https://img.shields.io/badge/Architecture-Human%20%2F%20Agent--in--the--Loop-7b2cbf)](#agent-skill)
 [![Scanner](https://img.shields.io/badge/Scanner-100%25%20Local%20%26%20Zero%20Cloud%20Calls-2ea44f)](#scope-and-limits)
 
@@ -30,7 +32,19 @@ The CLI makes **no remote model or API requests** and **does not execute target 
 
 ## 🚀 Install
 
-Python 3.11+ is required. From this checkout:
+Python 3.11+ is required.
+
+### Quick Install (One-Line CLI)
+
+```bash
+# Using uv (recommended):
+uv tool install git+https://github.com/Hero-all/repo-airgap.git
+
+# Or using pip / pipx:
+pip install git+https://github.com/Hero-all/repo-airgap.git
+```
+
+### From Local Checkout (Development)
 
 ```powershell
 uv venv --python 3.12 .venv
