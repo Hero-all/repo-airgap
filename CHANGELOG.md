@@ -5,6 +5,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+**In plain words / 白话版**
+
+- The tool used to say "telemetry is already turned off" just because an *example* settings file
+  mentioned it — even when that example actually said "on". It now only trusts real settings
+  files and tells you exactly where it looked.
+  以前只要示例配置文件里出现了关闭遥测的开关，工具就说「已经关好了」，哪怕示例里写的其实是「开」。现在只认真正生效的配置文件，并告诉你它在哪看到的、写的是什么。
+- It now catches more of the ways programs quietly connect to the internet (renamed imports,
+  reused connection objects, calls split across several lines).
+  能发现更多「偷偷联网」的写法，比如把联网库改了个名字再用、先建好连接对象再反复调用、一句代码拆成好几行写。
+- Modifying and undoing changes is safer: pressing Ctrl+C halfway no longer leaves files
+  half-changed, and read-only files are left alone instead of failing midway.
+  改代码和撤销更安全：改到一半按 Ctrl+C 不会再留下「改了一半」的文件；设成只读的文件不会被强行改动。
+
 Fixes from an external review of v0.3.0. Each item was reproduced first; regression tests were
 confirmed to fail on v0.3.0.
 
