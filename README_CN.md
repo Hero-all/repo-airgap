@@ -36,7 +36,19 @@
 
 ### 离线就绪提示（无需改代码）
 
-很多框架官方就提供了关闭遥测或强制离线的开关。`scan` 会根据依赖清单（`package.json`、`requirements*.txt`、`pyproject.toml`）和代码识别这些框架，检查仓库里是否已经设置了对应开关，并把缺失的开关写入 `.airgap/offline.env`。上方截图就是对 [text-generation-webui](https://github.com/oobabooga/text-generation-webui) 执行 `repo-airgap scan` 的真实输出，未经修改。
+很多框架官方就提供了关闭遥测或强制离线的开关。`scan` 会根据依赖清单（`package.json`、`requirements*.txt`、`pyproject.toml`）和代码识别这些框架，查找仓库中**给这些开关赋值**的位置，并把建议值写入 `.airgap/offline.env`。上方截图就是对 [text-generation-webui](https://github.com/oobabooga/text-generation-webui) 执行 `repo-airgap scan` 的真实输出，未经修改。
+
+每个开关只根据仓库文件给出一个状态：
+
+| 状态 | 含义 |
+| --- | --- |
+| `configured` | 非示例文件（Dockerfile、compose、已提交的 `.env`、CI 配置、代码）赋了建议值 |
+| `mismatch` / `conflict` | 赋了别的值 / 同时存在建议值和别的值 |
+| `unresolved` | 有赋值，但值是插值或继承的（`${VAR}`、`- VAR`、代码里的变量） |
+| `example_only` | 只出现在示例/模板/文档文件中（`.env.example`、`*.sample`、`docs/`），不算配置 |
+| `missing` | 扫描范围内没有任何赋值 |
+
+读取和比较（`os.getenv("X", "0")`、`process.env.X === "1"`）不算赋值。任何状态都不能证明部署后的进程真的拿到了这个值；被 `.gitignore` 忽略的文件（例如本地 `.env`）不会读取。凡是不是 `configured` 的开关，都会以生效行写入 `offline.env`，并在上方注释说明发现的冲突证据。
 
 目前覆盖 27 个框架/工具（Next.js、Nuxt、Gatsby、Astro、Storybook、Angular CLI、Turborepo、Expo、Prisma、Cypress、Playwright、Puppeteer、Electron、Hugging Face、Gradio、Streamlit、Chroma、Ray、W&B、Haystack、Unstructured、Semgrep、tiktoken、.NET、Yarn Berry 等），并能识别构建期/运行期下载：`from_pretrained`、`hf_hub_download`、`nltk.download`、`torch.hub.load`、tiktoken 编码文件、`next/font/google`、Dockerfile 中的 `RUN` 联网安装与公网基础镜像。规则见 [`rules/offline_switches.json`](rules/offline_switches.json)，每条都附官方文档链接。
 
@@ -116,7 +128,9 @@ repo-airgap auth user-add --database /private/auth.sqlite3 --email user@example.
 | `.airgap/verification.json` | 显式验证命令与运行时观测记录 |
 | `.airgap/AIRGAP_REPORT.md` | 包含已改动、已保留及未决项的完整审计报告 |
 
-工具以目标文件的原始字节（含用户未提交的工作区改动）作为基线，绝不执行全仓 Git 重置。基线发生变化会阻止 `apply`；应用补丁后若文件被再次手动修改，会在任何文件被恢复前阻止 `revert`，其余无关文件完全处于事务之外。单文件原子替换与恢复日志（Recovery Journal）支持中断恢复；若进程异常退出留下 `mutation.lock`，请在确认无活跃改造进程后再手动清理。
+工具以目标文件的原始字节（含用户未提交的工作区改动）作为基线，绝不执行全仓 Git 重置。基线发生变化会阻止 `apply`；应用补丁后若文件被再次手动修改，会在任何文件被恢复前阻止 `revert`，其余无关文件完全处于事务之外。只读文件会在写入任何内容之前被拒绝。每个文件都做原子替换并保留权限位；`apply` 出错或被 Ctrl+C 中断时，会还原它已经写过的全部文件，而被其他进程改过的文件保持原样不动。进程被强制杀掉时，`.airgap/manifest.json`（状态为 `applying`/`reverting`）可供 `revert` 继续完成回滚，`.airgap/mutation.lock` 会记录持有者的 PID、主机名和开始时间，工具不会自动删除它，请先确认该进程已不在运行再手动删除。经过符号链接或 Junction 的路径在 plan、apply、revert 阶段都会被拒绝。
+
+已知缺口：在最后一次哈希校验与原子替换之间的极短窗口内，若有其他程序写入，无法检测；原子替换会生成新的 inode，因此指向该文件的硬链接不会同步更新，ACL、扩展属性和属主也不会被复制（POSIX 权限位会保留）。
 
 计划与清单包含完整源码快照，补丁中可能含有敏感凭据（扫描与报告中的密钥脱敏为尽力而为）。请妥善保管 `.airgap` 目录与决策文件，切勿随代码自动分发；接收他人提供的 `plan` 时请务必审阅完整 Diff。
 
@@ -139,6 +153,8 @@ repo-airgap auth user-add --database /private/auth.sqlite3 --email user@example.
 ## 能力边界
 
 * **静态扫描范围**：覆盖 UTF-8 源码、嵌套 `.gitignore`、URL、引号包裹的裸域名、公网 IP、常见 HTTP/Socket/DNS/上传调用、遥测依赖包与导入、推广关键词及环境变量/容器配置开关；自动跳过生成文件、二进制、符号链接、超大文件与法律协议文件。
+* **调用追踪（单文件内）**：除直接调用（`requests.get`、`fetch`、`axios`、`httpx`、`aiohttp`、`urllib`、XHR、`EventSource`、`$.ajax`、WebSocket）外，还会追踪导入别名（`import requests as rq`、`from requests import post`、`import ky from 'ky'`、got/undici/node-fetch/superagent）、同一文件中创建的客户端实例（`requests.Session()`、`httpx.Client()`、`aiohttp.ClientSession()`、`axios.create()`、`new XMLHttpRequest()`）、跨行调用的参数、同文件内只赋值一次的 URL 常量、环境变量/配置引用（标为 `config:<名称>`）以及 `"https://" + host` 这类拼接。
+* **不会追踪**：跨文件或经函数参数传递的值、在其他模块创建的客户端、项目自定义的封装类、`getattr`/动态分派、由导入的工厂函数构造的客户端。这类调用会标为 `dynamic` 或完全漏掉；在下结论认为某条路径没有外联之前，请先自行搜索项目内部的 HTTP 封装。只有 Python 和 JS/TS 有调用追踪；Go 只匹配少量直接调用形式；其他语言只做 URL/IP 等通用匹配。
 * **静态分析局限**：静态规则不能证明完整的数据流向；最近邻函数声明仅作导航参考；汇聚点（Sink）附近的凭据/高熵字符串仅作审阅信号，不单独构成数据外泄定性；动态拼接的目标地址保持为 `unknown`。
 * **支持精确补丁的语言**：支持 Python / JS / TS / JSX / TSX / Vue / Svelte / HTML（规划与应用阶段会校验 Python 语法，前端与框架编译需通过目标项目自身的构建命令验证；其他语言请使用单独审阅的手工补丁）。
 * **验证命令执行**：`verify` 仅以无 Shell 推断的 JSON 参数数组方式运行用户显式提供的命令，请在受控隔离环境中执行测试。

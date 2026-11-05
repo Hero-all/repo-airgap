@@ -26,7 +26,8 @@ def test_framework_switches_from_manifests(tmp_path):
     hints = hints_by_id(tmp_path)
     assert {"nextjs", "storybook", "gradio", "huggingface-hub", "transformers", "chromadb"} <= set(hints)
     next_env = {e["name"]: e for e in hints["nextjs"]["env"]}
-    assert next_env["NEXT_TELEMETRY_DISABLED"]["status"] == "present"
+    # An example file documents a value; it is not configuration.
+    assert next_env["NEXT_TELEMETRY_DISABLED"]["status"] == "example_only"
     assert next_env["NEXT_TELEMETRY_DISABLED"]["found_in"] == [".env.example:1"]
     # A commented-out assignment is not an active setting.
     assert hints["gradio"]["env"][0]["status"] == "missing"
@@ -83,8 +84,11 @@ def test_cli_writes_env_suggestions_without_touching_source(tmp_path):
     assert main(["scan", str(tmp_path)]) == 0
     assert {p: p.read_bytes() for p in before} == before
     env = (tmp_path / ".airgap/offline.env").read_text("utf-8")
-    assert "GRADIO_ANALYTICS_ENABLED=False" in env
-    assert "# already set: NEXT_TELEMETRY_DISABLED=1" in env
+    lines = env.splitlines()
+    assert "GRADIO_ANALYTICS_ENABLED=False" in lines
+    # Configured in a committed .env: listed with its location, not repeated as an active line.
+    assert "# NEXT_TELEMETRY_DISABLED=1" in lines and "NEXT_TELEMETRY_DISABLED=1" not in lines
+    assert any(line.startswith("# configured in repository (.env:1 sets '1')") for line in lines)
     assert main(["report", str(tmp_path)]) == 0
     assert "Offline readiness hints" in (tmp_path / ".airgap/AIRGAP_REPORT.md").read_text("utf-8")
 
@@ -119,7 +123,7 @@ def test_requirement_url_forms_and_python_env_assignments(tmp_path):
     )
     hints = hints_by_id(tmp_path)
     assert {"gradio", "chromadb", "ray"} <= set(hints)
-    assert hints["gradio"]["env"][0]["status"] == "present"
-    assert hints["chromadb"]["env"][0]["status"] == "present"
+    assert hints["gradio"]["env"][0]["status"] == "configured"
+    assert hints["chromadb"]["env"][0]["status"] == "configured"
     # Reading a variable is not setting it.
     assert hints["ray"]["env"][0]["status"] == "missing"

@@ -17,7 +17,13 @@ Read `.airgap/audit_candidates.json`, `.airgap/outbound_inventory.json` and
 `.airgap/review_inventory.json` together with the actual callers. Check the
 `offline_hints` section and `.airgap/offline.env` first: official framework
 switches (for example `NEXT_TELEMETRY_DISABLED`, `HF_HUB_OFFLINE`) are preferable to
-source patches and need no edit plan. Tests, locale catalogs and minified bundles are
+source patches and need no edit plan. Read each switch's `status` literally:
+`configured` means a non-example repository file assigns the recommended value;
+`mismatch`/`conflict` mean a different value is assigned; `unresolved` means the
+value is interpolated or inherited; `example_only` means it appears only in
+example/template/docs files, which are not configuration. No status proves that the
+deployed process receives the value (`deployment_effect` is always `unverified`);
+say so when reporting. Tests, locale catalogs and minified bundles are
 excluded by default; add `--include-tests` when the user asks for them. The review
 command lists each inferred destination/purpose and defaults every unselected item
 to `KEEP`; it does not edit source. Scanning and review are local and do not call a
@@ -50,6 +56,12 @@ An external host, Sentry import or sponsor keyword does not establish that a
 feature is unwanted. Review initialization side effects and all callers before
 replacing a wrapper. Public CDNs can still prevent offline startup. Unknown
 dynamic destinations must remain visible as unknown.
+
+Detection is per file and syntactic. It follows import aliases, client instances
+created in the same file, multi-line call arguments, same-file URL constants and
+config/env references. It does not follow values across files, through function
+parameters or wrapper classes defined elsewhere, so search for project-specific
+HTTP wrappers yourself before concluding that a code path has no egress.
 
 ## Prepare and apply
 
@@ -98,5 +110,7 @@ Snapshots and diffs contain original source and may contain credentials: keep
 
 For rollback, use `repo-airgap revert /absolute/target`. It preserves unrelated
 files and refuses edits made after application. Never substitute a whole-tree
-Git reset. If interrupted, inspect the manifest and lock before resuming; never
-delete a lock while another mutation is active.
+Git reset. `apply` refuses read-only files and undoes its own writes on errors and
+Ctrl+C; after a hard kill, `.airgap/mutation.lock` records the owner PID and host.
+Confirm that process is gone, inspect the manifest, delete the lock, then run
+`revert` to resume. Never delete a lock while another mutation is active.

@@ -18,7 +18,7 @@ from .patcher.verifier import verify
 from .reporter import csv_report, report
 from .review import display_inventory, review, save_choices
 from .safety import repository, state_dir
-from .scanner.offline_hints import env_file
+from .scanner.offline_hints import STATUS_LABELS, env_file
 
 
 def print_hints(hints):
@@ -32,7 +32,7 @@ def print_hints(hints):
     for hint in hints:
         if hint["env"]:
             action = "\n".join(
-                f"{e['name']}={e['recommended']}" + (" (set)" if e["status"] == "present" else "")
+                f"{e['name']}={e['recommended']} ({STATUS_LABELS.get(e['status'], e['status'])})"
                 for e in hint["env"]
             )
         else:
@@ -49,6 +49,10 @@ def print_hints(hints):
         table.add_row(hint["kind"], hint["name"], evidence, action)
     Console().print(table)
     print("Suggested overrides: .airgap/offline.env (review before use).")
+    print(
+        "Switch status reflects repository files only; example/template files do not count, and "
+        "whether a deployment actually receives a value is not verified."
+    )
 
 
 def parser():

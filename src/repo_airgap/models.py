@@ -55,6 +55,13 @@ class ScanReport:
             "Ignored, binary, generated, oversized and non-UTF8 files are not covered.",
             "Dynamic destinations and untriggered runtime paths may remain unknown.",
             "No source execution, dependency installation or external request during scan.",
+            "Call tracking is per file: import aliases, same-file client instances, multi-line call "
+            "arguments, same-file URL constants and config/env references. Values passed across "
+            "files, through function parameters, containers or project-specific wrapper classes "
+            "defined elsewhere are not followed.",
+            "Switch status describes repository files only. Example/template/docs files are not "
+            "configuration; gitignored files such as a local .env are not read; whether the "
+            "deployed process receives a value is never verified.",
         ]
     )
 

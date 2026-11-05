@@ -35,7 +35,19 @@ The CLI makes **no remote model or API requests** and **does not execute target 
 
 ### Offline readiness hints (no code changes)
 
-Many frameworks ship an **official switch** to disable telemetry or force offline mode. `scan` detects them from your manifests (`package.json`, `requirements*.txt`, `pyproject.toml`) and code, checks whether each switch is already set anywhere in the repository, and writes the missing ones to `.airgap/offline.env`. The screenshot above is the real, unedited output of `repo-airgap scan` on [text-generation-webui](https://github.com/oobabooga/text-generation-webui).
+Many frameworks ship an **official switch** to disable telemetry or force offline mode. `scan` detects them from your manifests (`package.json`, `requirements*.txt`, `pyproject.toml`) and code, looks for places in the repository that *assign* each switch, and writes suggested values to `.airgap/offline.env`. The screenshot above is the real, unedited output of `repo-airgap scan` on [text-generation-webui](https://github.com/oobabooga/text-generation-webui).
+
+Each switch gets one status, based on repository files only:
+
+| Status | Meaning |
+| --- | --- |
+| `configured` | A non-example file (Dockerfile, compose, committed `.env`, CI config, code) assigns the recommended value |
+| `mismatch` / `conflict` | A different value is assigned / both matching and different values are assigned |
+| `unresolved` | Assigned, but the value is interpolated or inherited (`${VAR}`, `- VAR`, a variable in code) |
+| `example_only` | Appears only in example/template/docs files (`.env.example`, `*.sample`, `docs/`); not treated as configuration |
+| `missing` | Not assigned anywhere that was scanned |
+
+Reads and comparisons (`os.getenv("X", "0")`, `process.env.X === "1"`) are not assignments. No status proves that the deployed process receives the value; gitignored files such as a local `.env` are not read. Every switch that is not `configured` is written to `offline.env` as an active line, with the conflicting evidence noted above it.
 
 It covers 27 frameworks/tools (Next.js, Nuxt, Gatsby, Astro, Storybook, Angular CLI, Turborepo, Expo, Prisma, Cypress, Playwright, Puppeteer, Electron, Hugging Face, Gradio, Streamlit, Chroma, Ray, W&B, Haystack, Unstructured, Semgrep, tiktoken, .NET, Yarn Berry, …). It also flags build-time and runtime downloads: `from_pretrained`, `hf_hub_download`, `nltk.download`, `torch.hub.load`, tiktoken encodings, `next/font/google`, and Dockerfile `RUN` fetches or public base images. Rules live in [`rules/offline_switches.json`](rules/offline_switches.json), and each entry links to its official documentation.
 
@@ -115,7 +127,9 @@ See [references/flask-auth-mapping.example.json](references/flask-auth-mapping.e
 | `.airgap/verification.json` | Explicit verification commands and runtime evidence |
 | `.airgap/AIRGAP_REPORT.md` | Applied, retained, and unresolved audit evidence |
 
-The original bytes are the baseline, including uncommitted user work. The tool never resets the working tree. Changed baselines stop application; later edits to touched files stop rollback before any file is restored. Unrelated files remain outside the transaction. Per-file atomic replacement and a recovery journal support interrupted `apply`/`revert`. Inspect a leftover `mutation.lock` before removing it after a crash and confirm no mutation process is still running.
+The original bytes are the baseline, including uncommitted user work. The tool never resets the working tree. Changed baselines stop application; later edits to touched files stop rollback before any file is restored. Unrelated files remain outside the transaction. Read-only files are refused before anything is written. Each file is replaced atomically and keeps its permission bits; if `apply` fails or is interrupted with Ctrl+C, it restores every file it wrote and leaves files changed by another process untouched. After a hard kill, `.airgap/manifest.json` (status `applying`/`reverting`) lets `revert` resume, and `.airgap/mutation.lock` records the owner PID, host and start time; it is never removed automatically. Confirm that process is gone before deleting it. Paths through symlinks or junctions are refused at plan, apply and revert time.
+
+Known gaps: a write by another program in the instant between the final hash check and the atomic replace is not detected; atomic replacement gives the file a new inode, so hard links to it are not updated and ACLs/extended attributes/ownership are not copied (POSIX mode bits are).
 
 Plans and manifests contain full source snapshots; patches can contain secrets. Secret redaction in scan/report output is best-effort. Keep `.airgap` and decision files local and private. Plans are trusted change intent, not signed artifacts—always inspect the full diff when accepting a plan from another person.
 
@@ -138,6 +152,8 @@ See [runtime evidence format and limits](references/runtime.md).
 ## Scope and Limits
 
 * **Static Coverage**: Scan covers UTF-8 source, nested `.gitignore`, URLs, quoted bare domains, public IPs, common HTTP/socket/DNS/upload calls, telemetry manifests/imports, promotion keywords, and environment/container switches. It skips generated, binary, linked, oversized, minified, and legal files, plus tests and locale catalogs by default. Measured scan time on real projects ranges from about 1 s (144 files) to about 70 s (23k files); see [benchmarks](benchmarks/RESULTS.md).
+* **Call Tracking (per file)**: Besides direct calls (`requests.get`, `fetch`, `axios`, `httpx`, `aiohttp`, `urllib`, XHR, `EventSource`, `$.ajax`, WebSocket), the scanner follows import aliases (`import requests as rq`, `from requests import post`, `import ky from 'ky'`, got/undici/node-fetch/superagent), client instances created in the same file (`requests.Session()`, `httpx.Client()`, `aiohttp.ClientSession()`, `axios.create()`, `new XMLHttpRequest()`), arguments of multi-line calls, URL constants assigned once in the same file, env/settings references (`config:<NAME>`) and `"https://" + host` concatenation.
+* **Not Followed**: values passed across files or through function parameters, clients created in another module, project-specific wrapper classes, `getattr`/dynamic dispatch, and clients built from imported factories. Such calls are reported as `dynamic` or not at all; search for in-house HTTP wrappers before concluding a path has no egress. Only Python and JS/TS get call tracking; Go is matched by a few direct patterns; other languages only get generic URL/IP matching.
 * **Static Analysis Boundaries**: Static rules do not prove complete data flow. A nearest function declaration is a navigation hint. Credentials/high-entropy strings near a sink are review signals, not standalone exfiltration findings. Dynamic destinations stay unknown.
 * **Supported Edit Languages**: Exact source edits support Python/JS/TS/JSX/TSX/Vue/Svelte/HTML. Python syntax is checked during planning/application; JS/TS and framework builds require the target's build commands. Other languages use separately reviewed manual patches.
 * **Verification Execution**: `verify` runs only supplied argv commands with no inferred shell or project installation. Those commands execute code: use a suitable isolated environment. It records results, not semantic equivalence. No supplied commands means `not_verified`.
