@@ -12,7 +12,7 @@
 [![Architecture](https://img.shields.io/badge/Architecture-Human%20%2F%20Agent--in--the--Loop-7b2cbf)](#agent-skill)
 [![Scanner](https://img.shields.io/badge/Scanner-100%25%20Local%20%26%20Zero%20Cloud%20Calls-2ea44f)](#scope-and-limits)
 
-**Static Outbound & Telemetry Audit · Context-Aware Agent Review · Local SQLite Auth Adapter · Byte-Exact Reversible Patches**
+**Finds the places where open-source software quietly connects to the internet, so you can run it safely on an offline network**
 
 [**English**](README.md) · [**简体中文**](README_CN.md)
 
@@ -24,7 +24,33 @@
 
 ---
 
-## Overview
+## What is this? (in plain words)
+
+Many companies, hospitals, schools and government offices download open-source software and run it on **internal networks with no internet access**. The trouble is that this software often contains features that quietly go online:
+
+- **Usage reporting** ("telemetry"): which buttons you click and for how long, sent to the developer's servers;
+- **Downloads at startup**: AI models, fonts, word lists. It works at home with internet, then hangs or crashes on an offline network;
+- **Ads and upgrade prompts** fetched from the internet.
+
+Nobody can read tens of thousands of files by hand to find all of this. **repo-airgap is a check-up tool that does it for you:**
+
+1. **Check-up**: it finds every place in the code that may connect to the internet and lists them as "look at this first / normal / probably harmless";
+2. **Advice**: many programs already have an official "turn off reporting" or "offline mode" switch. The tool collects those switches for you, **with no code changes**;
+3. **Change it, and undo it**: for the online features you decide you don't want, it helps you (or an AI coding assistant) make precise edits. If you don't like the result, one command **restores every file exactly as it was**.
+
+Think of it as an **electrical inspection before moving in**: it finds which sockets are wired to the outside, tells you which switches you can simply turn off, and takes a photo before rewiring anything so it can always be put back.
+
+**What it does not do:**
+
+- It only reads code. It never runs your software, and **the check itself never goes online**;
+- It lists *possible* connections that a person should glance at. **It does not promise to find 100% of them**;
+- It does not cut your network and cannot prove software "never goes online". Always try it on a real offline network in the end.
+
+**Who it is for**: people who deploy open-source software on internal networks, security and privacy reviewers, and teams doing compliance checks.
+
+---
+
+## Technical overview
 
 repo-airgap provides a local Python CLI and an Agent Skill for reviewing optional outbound requests, telemetry, and promotional UI in source repositories. The scanner produces static candidates; an Agent or human reviews business context, supplies exact edits, and then checks and applies a reversible modification plan.
 
