@@ -3,6 +3,7 @@
 # repo-airgap — Privacy Audit & Air-Gapped Readiness Tool
 
 [![CI](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml/badge.svg)](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/repo-airgap?label=PyPI&color=0969da)](https://pypi.org/project/repo-airgap/)
 [![Release](https://img.shields.io/github/v/release/Hero-all/repo-airgap?label=Release&color=0969da)](https://github.com/Hero-all/repo-airgap/releases)
 [![License](https://img.shields.io/badge/License-MIT-0969da)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-e07a2b)](pyproject.toml)
@@ -16,7 +17,14 @@
 
 [**English**](README.md) · [**简体中文**](README_CN.md)
 
-<br/>
+</div>
+
+```bash
+pip install repo-airgap
+repo-airgap scan /path/to/your-repo
+```
+
+<div align="center">
 
 <img src="assets/workflow-preview.svg" alt="repo-airgap CLI Workflow Preview" width="100%"/>
 
@@ -83,13 +91,19 @@ By default, test/fixture/spec files, minified bundles, and loopback/private/sing
 
 Python 3.11+ is required.
 
-### Quick Install (One-Line CLI)
+### From PyPI (Recommended)
 
 ```bash
-# Using uv (recommended):
-uv tool install git+https://github.com/Hero-all/repo-airgap.git
+pip install repo-airgap
 
-# Or using pip / pipx:
+# Or with uv / pipx:
+uv tool install repo-airgap
+uvx repo-airgap scan /path/to/your-repo
+```
+
+### From GitHub (Latest `main`)
+
+```bash
 pip install git+https://github.com/Hero-all/repo-airgap.git
 ```
 

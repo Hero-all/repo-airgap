@@ -5,9 +5,9 @@ description: Audit a source repository for optional outbound requests, telemetry
 
 # Repository privacy and offline adaptation
 
-Use the installed `repo-airgap` CLI, or this project's virtual environment with
-`python -m repo_airgap.cli`. If the command is unavailable, install this project
-from its trusted local checkout using `python -m pip install /path/to/repo-airgap`.
+Use the installed `repo-airgap` CLI (`pip install repo-airgap`), or this project's
+virtual environment with `python -m repo_airgap.cli`. If installing offline from a
+trusted local checkout, run `python -m pip install /path/to/repo-airgap`.
 Do not install or execute anything from the target repository just to scan it.
 
 ## Audit and review

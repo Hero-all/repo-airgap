@@ -3,6 +3,7 @@
 # repo-airgap — 源码隐私外联审计与内网离线化改造工具
 
 [![CI](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml/badge.svg)](https://github.com/Hero-all/repo-airgap/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/repo-airgap?label=PyPI&color=0969da)](https://pypi.org/project/repo-airgap/)
 [![Release](https://img.shields.io/github/v/release/Hero-all/repo-airgap?label=Release&color=0969da)](https://github.com/Hero-all/repo-airgap/releases)
 [![License](https://img.shields.io/badge/License-MIT-0969da)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-e07a2b)](pyproject.toml)
@@ -16,7 +17,14 @@
 
 [**English**](README.md) · [**简体中文**](README_CN.md)
 
-<br/>
+</div>
+
+```bash
+pip install repo-airgap
+repo-airgap scan /path/to/your-repo
+```
+
+<div align="center">
 
 <img src="assets/workflow-preview.svg" alt="repo-airgap 终端工作流演示" width="100%"/>
 
@@ -84,13 +92,19 @@
 
 需要 Python 3.11 及以上版本。
 
-### 一键全局安装（无需手动克隆源码）
+### 从 PyPI 安装（推荐）
 
 ```bash
-# 使用 uv（推荐）：
-uv tool install git+https://github.com/Hero-all/repo-airgap.git
+pip install repo-airgap
 
-# 或使用 pip / pipx：
+# 或使用 uv / pipx：
+uv tool install repo-airgap
+uvx repo-airgap scan /path/to/your-repo
+```
+
+### 从 GitHub 安装最新主分支
+
+```bash
 pip install git+https://github.com/Hero-all/repo-airgap.git
 ```
 
