@@ -1,0 +1,30 @@
+# .github/workflows/publish.yml — add this file to Hero-all/repo-airgap
+# Publishes to PyPI on every GitHub Release using trusted publishing (no API token).
+# One-time PyPI setup first: pypi.org -> repo-airgap project -> Publishing ->
+# "Add a new pending publisher": owner Hero-all, repo repo-airgap,
+# workflow publish.yml, environment pypi (must match below).
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build distributions
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
